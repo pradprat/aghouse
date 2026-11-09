@@ -28,7 +28,8 @@ public static class AppStorage
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
-    public static string Dir { get; } = Path.Combine(
+    /// <summary>Folder for settings.json and session.json. Only tests change it (internal setter), to stay out of the real %APPDATA%.</summary>
+    public static string Dir { get; internal set; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "aghouse");
 
     public static string SettingsPath => Path.Combine(Dir, "settings.json");

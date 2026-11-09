@@ -28,4 +28,10 @@
     <Compile Include="..\..\src\AgHouse.App\Ipc\PipeServer.cs" Link="Linked\PipeServer.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- AppStorage (settings.json / session.json) is also WPF-free. It is linked, not referenced, and the tests
+         provide their own AgHouse.App.Log stand-in (see Linked tests) so nothing touches the real %LOCALAPPDATA% log. -->
+    <Compile Include="..\..\src\AgHouse.App\Persistence\AppStorage.cs" Link="Linked\AppStorage.cs" />
+  </ItemGroup>
+
 </Project>
