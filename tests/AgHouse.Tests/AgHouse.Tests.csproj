@@ -22,4 +22,10 @@
     <ProjectReference Include="..\..\src\AgHouse.Core\AgHouse.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- PipeServer has no WPF dependency, so its real source is compiled into the tests instead of
+         referencing the net10.0-windows App project. This lets the pipe server run without the GUI. -->
+    <Compile Include="..\..\src\AgHouse.App\Ipc\PipeServer.cs" Link="Linked\PipeServer.cs" />
+  </ItemGroup>
+
 </Project>
