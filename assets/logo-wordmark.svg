@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 256" width="720" height="256">
+  <title>aghouse</title>
+  <style>
+    .word { fill: #1A1A1A; font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif; font-weight: 600; }
+  </style>
+  <defs>
+    <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4CC2FF"/>
+      <stop offset="1" stop-color="#0F6CBD"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A3A3A"/>
+      <stop offset="1" stop-color="#1E1E1E"/>
+    </linearGradient>
+    <radialGradient id="dot" cx="0.38" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#FFE08A"/>
+      <stop offset="1" stop-color="#FFB900"/>
+    </radialGradient>
+  </defs>
+
+  <g>
+    <rect x="40" y="96" width="176" height="136" rx="20" fill="url(#body)"/>
+    <rect x="40.75" y="96.75" width="174.5" height="134.5" rx="19.25" fill="none" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="1.5"/>
+    <path d="M128 26 L230 110 L26 110 Z" fill="url(#roof)" stroke="url(#roof)" stroke-width="14" stroke-linejoin="round"/>
+    <rect x="126.5" y="134" width="3" height="80" rx="1.5" fill="#FFFFFF" fill-opacity="0.12"/>
+    <path d="M60 150 L78 166 L60 182" fill="none" stroke="#4CC2FF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="86" y="177" width="26" height="8" rx="3" fill="#EDEDED"/>
+    <rect x="144" y="148" width="54" height="7" rx="3.5" fill="#FFFFFF" fill-opacity="0.32"/>
+    <rect x="144" y="164" width="36" height="7" rx="3.5" fill="#FFFFFF" fill-opacity="0.22"/>
+    <rect x="144" y="180" width="46" height="7" rx="3.5" fill="#FFFFFF" fill-opacity="0.22"/>
+    <circle cx="198" cy="54" r="24" fill="none" stroke="#FFB900" stroke-opacity="0.35" stroke-width="4"/>
+    <circle cx="198" cy="54" r="15" fill="url(#dot)"/>
+  </g>
+
+  <text class="word" x="262" y="178" font-size="118" letter-spacing="-2">aghouse</text>
+</svg>

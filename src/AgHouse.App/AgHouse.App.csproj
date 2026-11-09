@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- Not "AgHouse": it would collide with the CLI's aghouse.exe (case-insensitive FS). -->
+    <AssemblyName>AgHouseApp</AssemblyName>
+    <RootNamespace>AgHouse.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Generated from assets/*.svg by assets/build-icons.ps1 -->
+    <ApplicationIcon>Assets\aghouse.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- WPF Fluent theme (ThemeMode) is still flagged experimental. -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgHouse.Core\AgHouse.Core.csproj" />
+    <!-- Ships aghouse.exe (the CLI) next to AgHouse.exe; panes get this folder on PATH. -->
+    <ProjectReference Include="..\AgHouse.Cli\AgHouse.Cli.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
+    <PackageReference Include="EasyWindowsTerminalControl" Version="1.0.38" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="ShellIntegration\**" CopyToOutputDirectory="PreserveNewest" />
+    <Resource Include="Assets\aghouse.ico" />
+  </ItemGroup>
+
+</Project>

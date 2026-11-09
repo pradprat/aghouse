@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AgHouse.App/AgHouse.App.csproj" />
+    <Project Path="src/AgHouse.Cli/AgHouse.Cli.csproj" />
+    <Project Path="src/AgHouse.Core/AgHouse.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AgHouse.Tests/AgHouse.Tests.csproj" />
+  </Folder>
+</Solution>
