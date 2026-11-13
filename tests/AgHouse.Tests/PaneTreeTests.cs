@@ -119,4 +119,39 @@ public class PaneTreeTests
         Assert.Equal(0.3, root.Ratio, 6);
         Assert.Equal(["n1", "n2", "n3"], rebuilt.Leaves().Select(l => l.PaneId));
     }
+
+    [Fact]
+    public void Serialize_Tabs_RoundTripThroughJson()
+    {
+        var t = new PaneTree("s1");
+        t.Split("s1", Direction.Right, "s2");
+        var dto = PaneLayoutSerializer.ToDto(t.Root!, id => id == "s1"
+            ? new PaneLayoutDto
+            {
+                Cwd = @"C:\b", Profile = "pwsh", ActiveTab = 1,
+                Tabs = [new TabDto { Cwd = @"C:\a", Profile = "pwsh" }, new TabDto { Cwd = @"C:\b", Profile = "pwsh", Name = "server" }],
+            }
+            : new PaneLayoutDto { Cwd = @"C:\c", Profile = "cmd" });
+
+        var json = System.Text.Json.JsonSerializer.Serialize(dto);
+        var back = System.Text.Json.JsonSerializer.Deserialize<PaneLayoutDto>(json)!;
+
+        var leaves = new List<PaneLayoutDto>();
+        PaneLayoutSerializer.FromDto(back, leaf => { leaves.Add(leaf); return "x" + leaves.Count; });
+        Assert.Equal(2, leaves[0].AllTabs().Count);
+        Assert.Equal("server", leaves[0].AllTabs()[1].Name);
+        Assert.Equal(1, leaves[0].ActiveTab);
+        Assert.Equal([@"C:\c"], leaves[1].AllTabs().Select(tab => tab.Cwd));
+    }
+
+    [Fact]
+    public void Leaf_WithoutTabs_IsOneTab()
+    {
+        // Sessions saved before tabs existed: a leaf is just cwd + profile.
+        var leaf = new PaneLayoutDto { Cwd = @"C:\old", Profile = "cmd" };
+        var only = Assert.Single(leaf.AllTabs());
+        Assert.Equal(@"C:\old", only.Cwd);
+        Assert.Equal("cmd", only.Profile);
+        Assert.Null(only.Name);
+    }
 }

@@ -26,16 +26,20 @@ aghouse is the Windows-native take on the cmux idea. The UI uses WPF Fluent, Mic
 - Supported shells: pwsh, Windows PowerShell, cmd, Git Bash and WSL distros. Shell integration reports the cwd (OSC 7) and prompt marks (OSC 133).
 - The app is driven from the keyboard first, with full shortcut coverage. Mouse paths exist for closing panes, renaming and the context menu.
 - The `aghouse` CLI talks to the app over a per-user named pipe. Every pane has it on `PATH` and gets `AGHOUSE_PANE_ID`, so agents and scripts can control the app from inside a pane.
-- Claude Code integration: `aghouse hooks print claude` routes Notification and Stop events to the pane that ran them.
-- File locations: settings at `%APPDATA%\aghouse\settings.json` (font, size, default profile, theme `system`/`dark`/`light`, toast toggle), session at `%APPDATA%\aghouse\session.json` (layout and cwd are restored, scrollback is not), log at `%LOCALAPPDATA%\aghouse\aghouse.log`.
+- Claude Code integration: Settings › Integrations or `aghouse hooks install claude` adds aghouse's hook to `~/.claude/settings.json`, after asking and with a backup. It routes Notification, Stop, UserPromptSubmit and PostToolUse events to the pane that ran them. `aghouse hooks print claude` still prints the snippet for a hand merge.
+- File locations: settings at `%APPDATA%\aghouse\settings.json` (edited by the Settings window, changes apply at once), session at `%APPDATA%\aghouse\session.json` (layout, cwd and window placement are restored, scrollback is not), log at `%LOCALAPPDATA%\aghouse\aghouse.log`.
 
 ## Capabilities and Constraints
 
-- Workspaces with split panes (right/down/left/up). Focus moves between panes, panes close, workspaces can be renamed. The sidebar shows the active pane's cwd and git branch.
-- Attention: a pane needing attention gets an accent ring and its workspace gets a dot. Toasts and the taskbar flash fire when the window is in the background. Ctrl+Shift+U jumps to the most recent unread pane.
-- When a workspace is split, each pane gets a slim header with its folder or program title and a ✕ close button.
-- **Hard technical constraint:** the terminal control is a native child window (an airspace issue), so WPF can never draw over a pane. Attention indicators and overlays must sit around panes, never on top of them.
-- The terminal colour scheme is fixed at launch. A Windows theme change does not recolour panes that already exist.
+- Workspaces with split panes (right/down/left/up), and tabs inside a pane (each tab its own terminal). Focus moves between panes, tabs switch, panes and tabs close, workspaces and tabs can be renamed.
+- cmux-style sidebar rows: the active pane's cwd, git branch and PR (via `gh`), plus status chips (an agent's "Working" from Claude Code hooks, `aghouse set-status` entries, listening ports), a progress line (`aghouse set-progress`) and the newest log line (`aghouse log`). This metadata is runtime-only and never saved.
+- Attention: a pane needing attention gets an accent ring and its workspace gets a dot. Toasts and the taskbar flash fire when the window is in the background. Ctrl+Shift+U jumps to the pane that asked most recently. The waiting list (Ctrl+Shift+I, or the footer's "N waiting") shows every waiting pane, then the last 20 handled requests, runtime only.
+- Command palette (Ctrl+Shift+P): waiting panes, workspaces, panes and every action with its shortcut. Find in a pane's output (Ctrl+Shift+F), per-pane text size (Ctrl+= / - / 0, Ctrl+wheel), pane zoom (Ctrl+Shift+Enter), drag to reorder workspaces, Ctrl+Alt+W closes a workspace.
+- A Settings window (Ctrl+,) with General, Appearance, Notifications, Integrations and About. A first-run welcome screen appears when there is no session.json.
+- When a workspace is split, each pane gets a slim header with a name that tells it apart from its siblings and a ✕ close button. A pane with two or more tabs uses that header as its tab strip. New workspaces are named after their folder.
+- **Hard technical constraint:** the terminal control is a native child window (an airspace issue), so WPF can never draw over a pane. Attention indicators and overlays must sit around panes, never on top of them. Transient surfaces that must float (the palette, the waiting list, find results) are separate owned windows or popups, like menus.
+- The terminal control has no search API. Find searches aghouse's own plain-text mirror of the output and lists matching lines; it can't highlight them in the terminal.
+- No update check: aghouse has no published releases yet, so About links to the Releases page and claims nothing about being up to date.
 - The terminal packages come from Windows Terminal CI builds, not an officially supported Microsoft package.
 - Minimum OS is Windows 10 1809. Mica requires Windows 11.
 - Executables: `AgHouseApp.exe` (GUI) and `aghouse.exe` (CLI). The names differ so they don't collide on Windows' case-insensitive file system.

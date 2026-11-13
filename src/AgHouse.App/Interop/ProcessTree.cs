@@ -46,6 +46,32 @@ internal static partial class ProcessTree
         return found;
     }
 
+    /// <summary>
+    /// For each root pid, that pid plus every process below it, from one snapshot of the process table.
+    /// Used to tell which pane owns a listening port.
+    /// </summary>
+    public static Dictionary<int, HashSet<int>> Descendants(IEnumerable<int> roots)
+    {
+        var all = Snapshot();
+        var children = all.ToLookup(p => p.ParentPid, p => p.Pid);
+        var result = new Dictionary<int, HashSet<int>>();
+        foreach (var root in roots.Distinct())
+        {
+            var set = new HashSet<int> { root };
+            var queue = new Queue<int>([root]);
+            while (queue.Count > 0)
+            {
+                // A pid can be reused by a process whose parent died long ago; the set stops cycles.
+                foreach (var child in children[queue.Dequeue()])
+                {
+                    if (set.Add(child)) queue.Enqueue(child);
+                }
+            }
+            result[root] = set;
+        }
+        return result;
+    }
+
     private readonly record struct Entry(int Pid, int ParentPid, string Name);
 
     private static List<Entry> Snapshot()

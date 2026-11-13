@@ -10,6 +10,13 @@ internal static partial class Win32
     public const int WM_RBUTTONDOWN = 0x0204;
     public const int WM_RBUTTONUP = 0x0205;
     public const int WM_MBUTTONDOWN = 0x0207;
+    public const int WM_MOUSEWHEEL = 0x020A;
+
+    public const int VK_RETURN = 0x0D;
+    public const int VK_OEM_COMMA = 0xBC;
+    public const int VK_ADD = 0x6B;
+    public const int VK_SUBTRACT = 0x6D;
+    public const int VK_NUMPAD0 = 0x60;
 
     public const int VK_TAB = 0x09;
     public const int VK_SHIFT = 0x10;
@@ -21,6 +28,10 @@ internal static partial class Win32
     public const int VK_DOWN = 0x28;
     public const int VK_OEM_PLUS = 0xBB;
     public const int VK_OEM_MINUS = 0xBD;
+    public const int VK_OEM_4 = 0xDB; // [
+    public const int VK_OEM_6 = 0xDD; // ]
+    public const int VK_PRIOR = 0x21; // Page Up
+    public const int VK_NEXT = 0x22;  // Page Down
 
     [LibraryImport("user32.dll")]
     public static partial short GetKeyState(int nVirtKey);

@@ -38,6 +38,15 @@ public static class Methods
     public const string ClosePane = "close-pane";
     public const string SendText = "send-text";
     public const string Notify = "notify";
+    public const string SetStatus = "set-status";
+    public const string ClearStatus = "clear-status";
+    public const string SetProgress = "set-progress";
+    public const string Log = "log";
+    public const string NewTab = "new-tab";
+    public const string MoveWorkspace = "move-workspace";
+    public const string CloseWorkspace = "close-workspace";
+    public const string ZoomPane = "zoom-pane";
+    public const string Waiting = "waiting";
 }
 
 public sealed class RpcRequest

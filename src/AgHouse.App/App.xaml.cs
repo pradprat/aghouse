@@ -57,6 +57,16 @@ public partial class App : Application
         catch (AggregateException) { /* the other instance is still starting or hung */ }
     }
 
+    /// <summary>
+    /// Windows is signing out or shutting down. Window.Closing doesn't run on this path, so save the
+    /// session here, and don't ask about running programs: Windows is ending them either way.
+    /// </summary>
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        base.OnSessionEnding(e);
+        (MainWindow as MainWindow)?.Controller.Dispose();
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         _pipe?.Dispose();

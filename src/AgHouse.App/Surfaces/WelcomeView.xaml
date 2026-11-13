@@ -1,0 +1,57 @@
+<UserControl x:Class="AgHouse.App.Surfaces.WelcomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             AutomationProperties.Name="Welcome to aghouse">
+    <!-- First launch only: no terminal exists yet, so this is plain WPF in the terminal area. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="520" Margin="32" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                <Image Source="/Assets/aghouse-128.png" Width="40" Height="40" Margin="0,0,12,0"
+                       RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="aghouse logo" />
+                <TextBlock Text="aghouse" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <TextBlock Text="Run coding agents side by side" FontSize="14" FontWeight="SemiBold" />
+            <TextBlock FontSize="13" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Text="Each workspace is a folder with its own split panes and tabs. When an agent needs you, its pane says “Needs you” and the sidebar shows which workspace it's in." />
+
+            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                <Button x:Name="OpenHere" Click="OpenHere_Click" IsDefault="True" Padding="14,6" Margin="0,0,8,0" />
+                <Button Content="Choose a folder…" Click="ChooseFolder_Click" Padding="14,6" />
+            </StackPanel>
+
+            <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" Margin="0,24,0,0" Padding="0,16,0,0">
+                <DockPanel>
+                    <Button x:Name="ConnectClaude" DockPanel.Dock="Right" Content="Connect Claude Code" VerticalAlignment="Center"
+                            Margin="16,0,0,0" Click="ConnectClaude_Click" />
+                    <StackPanel>
+                        <TextBlock Text="Claude Code" FontSize="14" />
+                        <TextBlock x:Name="ClaudeStatus" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" Margin="0,16,0,0" Padding="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="Keys worth knowing" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ItemsControl x:Name="Keys" Focusable="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="128" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Item1}" FontSize="12" Margin="0,1,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Item2}" FontSize="13" TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

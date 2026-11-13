@@ -21,11 +21,6 @@ public sealed class PaneSession : ObservableObject, IDisposable
     private readonly Dispatcher _ui;
     private readonly OscParser _parser = new();
     private readonly List<TerminalEvent> _scratch = [];
-    private readonly Grid _header;
-    private readonly Border _headerTint;
-    private readonly TextBlock _headerText;
-    private readonly TextBlock _attentionText;
-    private readonly System.Windows.Documents.Run _attentionMessage;
     private IProcess? _process;
     private bool _disposed;
     private bool _attached;
@@ -35,10 +30,22 @@ public sealed class PaneSession : ObservableObject, IDisposable
     private string? _title;
     private bool _hasUnread;
     private bool _isActive;
+    private TerminalTheme _theme;
+    private Color _background;
+    private string _fontFamily;
+    private int _baseFontSize;
+    private int _fontSize;
 
-    public PaneSession(string id, string workspaceId, ShellProfile profile, string? cwd, TerminalTheme theme,
-        Color background, string fontFamily, int fontSize, IReadOnlyDictionary<string, string?> env)
+    public const int MinFontSize = 6;
+    public const int MaxFontSize = 48;
+
+    public PaneSession(string id, string workspaceId, ShellProfile profile, string? cwd, TerminalTheme theme, Color background,
+        string fontFamily, int fontSize, IReadOnlyDictionary<string, string?> env)
     {
+        _theme = theme;
+        _background = background;
+        _fontFamily = fontFamily;
+        _baseFontSize = _fontSize = fontSize;
         _ui = Dispatcher.CurrentDispatcher;
         Id = id;
         WorkspaceId = workspaceId;
@@ -57,83 +64,7 @@ public sealed class PaneSession : ObservableObject, IDisposable
         // (with our env + factory) instead, so detach the default before it can start.
         Control.ConPTYTerm = null;
 
-        // Header strip (only shown while the workspace is split): location, attention message, close button.
-        // It sits above the terminal, never on top of it (the terminal is a native HWND).
-        _headerText = new TextBlock
-        {
-            FontSize = 12,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            Margin = new Thickness(2, 0, 8, 0),
-        };
-
-        // "Needs you · <message>": attention said in words, so the accent ring can't be read as focus.
-        var needsYou = new System.Windows.Documents.Run("Needs you") { FontWeight = FontWeights.SemiBold };
-        needsYou.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "TextFillColorPrimaryBrush");
-        _attentionMessage = new System.Windows.Documents.Run();
-        _attentionMessage.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "TextFillColorSecondaryBrush");
-        _attentionText = new TextBlock
-        {
-            FontSize = 12,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            Visibility = Visibility.Collapsed,
-        };
-        _attentionText.Inlines.Add(needsYou);
-        _attentionText.Inlines.Add(_attentionMessage);
-
-        // Faint accent wash behind the header of a pane that needs you (a separate layer so the text keeps full opacity).
-        _headerTint = new Border { CornerRadius = new CornerRadius(3), Opacity = 0.16, Visibility = Visibility.Collapsed };
-        _headerTint.SetResourceReference(Border.BackgroundProperty, "AccentFillColorDefaultBrush");
-
-        var closeButton = new Button
-        {
-            Content = new TextBlock
-            {
-                Text = "",
-                FontFamily = (FontFamily)Application.Current.Resources["IconFont"],
-                FontSize = 10,
-            },
-            Padding = new Thickness(7, 3, 7, 3),
-            MinWidth = 0,
-            MinHeight = 0,
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            Focusable = false,
-            VerticalAlignment = VerticalAlignment.Center,
-            ToolTip = "Close pane (Ctrl+Shift+W)",
-        };
-        System.Windows.Automation.AutomationProperties.SetName(closeButton, "Close pane");
-        closeButton.Click += (_, _) => CloseRequested?.Invoke(this);
-
-        var headerRow = new DockPanel();
-        DockPanel.SetDock(closeButton, Dock.Right);
-        DockPanel.SetDock(_headerText, Dock.Left);
-        headerRow.Children.Add(closeButton);
-        headerRow.Children.Add(_headerText);
-        headerRow.Children.Add(_attentionText);
-
-        _header = new Grid { Height = 26, Background = Brushes.Transparent, Visibility = Visibility.Collapsed };
-        _header.Children.Add(_headerTint);
-        _header.Children.Add(headerRow);
-        _header.MouseLeftButtonDown += (_, _) => FocusRequested?.Invoke(this);
-
-        var body = new DockPanel();
-        DockPanel.SetDock(_header, Dock.Top);
-        body.Children.Add(_header);
-        body.Children.Add(Control);
-        UpdateHeaderText();
-
-        Frame = new Border
-        {
-            Child = body,
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(4, 2, 2, 2),
-            Background = new SolidColorBrush(background),
-            CornerRadius = new CornerRadius(4),
-            SnapsToDevicePixels = true,
-        };
-        UpdateFrame();
+        _label = profile.Name; // until the controller names it (WorkspaceController.UpdateLabels)
 
         Pty = new TermPTY();
         Pty.InterceptOutputToUITerminal = OnOutput;
@@ -163,10 +94,59 @@ public sealed class PaneSession : ObservableObject, IDisposable
     public string Id { get; }
     public string WorkspaceId { get; }
     public ShellProfile Profile { get; }
-    public Border Frame { get; }
+
+    /// <summary>The slot (layout cell) this terminal is a tab of.</summary>
+    public string SlotId { get; set; } = "";
     public EasyTerminalControl Control { get; }
     public TermPTY Pty { get; }
     public DateTime UnreadAt { get; private set; }
+
+    /// <summary>A plain-text copy of the output, for find (the native control has no search).</summary>
+    public OutputMirror Mirror { get; } = new();
+
+    /// <summary>
+    /// Raised when the pane stops needing the user, with what it had asked (null for a bare bell) and
+    /// when it asked. The waiting list keeps these as "Earlier".
+    /// </summary>
+    public event Action<PaneSession, string?, DateTime>? AttentionHandled;
+
+    /// <summary>The terminal font size in points; <see cref="ZoomPercent"/> compares it with the setting.</summary>
+    public int FontSize
+    {
+        get => _fontSize;
+        private set { if (Set(ref _fontSize, value)) OnPropertyChanged(nameof(ZoomPercent)); }
+    }
+
+    /// <summary>100 at the font size from settings; Ctrl+= / Ctrl+- change it for this pane only.</summary>
+    public int ZoomPercent => (int)Math.Round(100.0 * _fontSize / _baseFontSize);
+
+    /// <summary>Ctrl+= / Ctrl+- (and Ctrl+wheel): one point bigger or smaller. 0 goes back to the setting.</summary>
+    public void Zoom(int delta) =>
+        ApplyFont(delta == 0 ? _baseFontSize : Math.Clamp(_fontSize + delta, MinFontSize, MaxFontSize));
+
+    /// <summary>
+    /// New appearance from Settings: colours, font and size. A zoomed pane keeps its offset from the
+    /// new size.
+    /// </summary>
+    public void SetAppearance(TerminalTheme theme, Color background, string fontFamily, int baseFontSize)
+    {
+        var offset = _fontSize - _baseFontSize;
+        (_theme, _background, _fontFamily, _baseFontSize) = (theme, background, fontFamily, baseFontSize);
+        Control.Theme = theme;
+        Control.FontFamilyWhenSettingTheme = new FontFamily(fontFamily);
+        OnPropertyChanged(nameof(ZoomPercent));
+        ApplyFont(Math.Clamp(baseFontSize + offset, MinFontSize, MaxFontSize), force: true);
+    }
+
+    private void ApplyFont(int size, bool force = false)
+    {
+        if (size == _fontSize && !force) return;
+        FontSize = size;
+        Control.FontSizeWhenSettingTheme = size;
+        if (!_attached) return; // the control applies it with the theme when it loads
+        try { Control.Terminal.SetTheme(_theme, _fontFamily, (short)size, _background); }
+        catch (Exception ex) { Log.Write($"font {Id}: {ex.Message}"); }
+    }
 
     /// <summary>Raised on the UI thread for notifications and bells.</summary>
     public event Action<PaneSession, TerminalEvent>? TerminalEvent;
@@ -174,33 +154,51 @@ public sealed class PaneSession : ObservableObject, IDisposable
     /// <summary>Raised on the UI thread when the shell process exits or fails to start.</summary>
     public event Action<PaneSession>? Exited;
 
-    /// <summary>The header's close button was clicked.</summary>
-    public event Action<PaneSession>? CloseRequested;
-
-    /// <summary>The header was clicked.</summary>
-    public event Action<PaneSession>? FocusRequested;
-
     public string? Cwd
     {
         get => _cwd;
-        private set { if (Set(ref _cwd, value)) UpdateHeaderText(); }
+        private set => Set(ref _cwd, value);
     }
 
+    /// <summary>The raw terminal title. Use <see cref="ProgramTitle"/> for display.</summary>
     public string? Title
     {
         get => _title;
-        private set { if (Set(ref _title, value)) UpdateHeaderText(); }
+        private set => Set(ref _title, value);
     }
 
-    /// <summary>Show the header strip (with the close button). The controller turns it on while split.</summary>
-    public bool ShowHeader
+    /// <summary>
+    /// The title the running program set ("vim", an agent's current task), or null while the shell
+    /// is only showing its own path ("C:\WINDOWS\system32\cmd.exe"). cmd appends " - &lt;command&gt;"
+    /// while a command runs; that command is kept.
+    /// </summary>
+    public string? ProgramTitle
     {
-        get => _header.Visibility == Visibility.Visible;
-        set
+        get
         {
-            _header.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
-            UpdateFrame(); // a lone pane drops its focus border
+            var t = _title?.Trim();
+            if (string.IsNullOrEmpty(t) || t.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return null;
+            var dash = t.IndexOf(".exe - ", StringComparison.OrdinalIgnoreCase);
+            if (dash > 0 && t[..dash].Contains('\\'))
+            {
+                // cmd echoes the line as typed, double spaces and all ("ping  -t 127.0.0.1").
+                var cmd = string.Join(' ', t[(dash + 7)..].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+                return cmd.Length > 0 ? cmd : null;
+            }
+            return t;
         }
+    }
+
+    /// <summary>The current folder's name: "aghouse", "Home" for the user's profile folder, "C:" for a drive root.</summary>
+    public string? FolderName => FolderNameOf(_cwd);
+
+    public static string? FolderNameOf(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        var trimmed = path.TrimEnd('\\', '/');
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).TrimEnd('\\');
+        if (string.Equals(trimmed, home, StringComparison.OrdinalIgnoreCase)) return "Home";
+        return Path.GetFileName(trimmed) is { Length: > 0 } leaf ? leaf : trimmed;
     }
 
     /// <summary>
@@ -210,20 +208,45 @@ public sealed class PaneSession : ObservableObject, IDisposable
     public IReadOnlyList<string> RunningPrograms() =>
         _process is ProcessFactory.WrappedProcess { HasExited: false } p ? ProcessTree.RunningUnder(p.Pid) : [];
 
+    /// <summary>The shell's process id while it runs (for finding the ports its programs listen on).</summary>
+    public int? ShellPid => _process is ProcessFactory.WrappedProcess { HasExited: false } p ? p.Pid : null;
+
     /// <summary>A short name for what's running, for confirmations: the program's own title if it set one, else its exe.</summary>
     public string? DescribeRunning()
     {
         var running = RunningPrograms();
         if (running.Count == 0) return null;
-        if (_title is { Length: > 0 } t && !t.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return t.Trim();
+        if (ProgramTitle is { } t) return t;
         return running.Count == 1 ? running[0] : $"{running[0]} and {running.Count - 1} more";
     }
 
-    /// <summary>The pane's label (folder or program title), as the header shows it.</summary>
-    public string Label => _headerText.Text;
+    /// <summary>
+    /// What the header (and confirmations, and screen readers) call this pane. Set by the controller,
+    /// because a name that tells panes apart depends on the workspace and the siblings.
+    /// </summary>
+    public string Label
+    {
+        get => _label;
+        set => Set(ref _label, value);
+    }
+
+    private string _label;
+    private string? _customName;
+    private string? _attention;
+
+    /// <summary>A name the user gave this tab (double-click a tab). Wins over the derived name; null to go back to it.</summary>
+    public string? CustomName
+    {
+        get => _customName;
+        set => Set(ref _customName, string.IsNullOrWhiteSpace(value) ? null : value.Trim());
+    }
 
     /// <summary>What the agent said when it asked for attention (shown in the header while unread).</summary>
-    public string? AttentionMessage { get; private set; }
+    public string? AttentionMessage
+    {
+        get => _attention;
+        private set => Set(ref _attention, value);
+    }
 
     /// <summary>Mark this pane as needing the user, optionally with the agent's message.</summary>
     public void RaiseAttention(string? message)
@@ -231,20 +254,8 @@ public sealed class PaneSession : ObservableObject, IDisposable
         // A bare bell keeps a message the agent is still waiting on; a new message replaces it.
         if (!string.IsNullOrWhiteSpace(message)) AttentionMessage = message.Trim();
         else if (!HasUnread) AttentionMessage = null;
-        _attentionMessage.Text = AttentionMessage is null ? "" : " · " + AttentionMessage;
-        _attentionText.ToolTip = AttentionMessage;
         HasUnread = true;
         UnreadAt = DateTime.UtcNow; // a repeat request on a waiting pane counts as the newest
-        UpdateFrame();
-    }
-
-    private void UpdateHeaderText()
-    {
-        // Prefer a program-set title (e.g. "vim"), but not the shell's own exe path.
-        var title = _title is { Length: > 0 } t && !t.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? t : null;
-        var cwd = _cwd is null ? null : Path.GetFileName(_cwd.TrimEnd('\\')) is { Length: > 0 } leaf ? leaf : _cwd;
-        _headerText.Text = title ?? cwd ?? Profile.Name;
-        _headerText.ToolTip = _cwd;
     }
 
     public bool HasUnread
@@ -252,17 +263,18 @@ public sealed class PaneSession : ObservableObject, IDisposable
         get => _hasUnread;
         set
         {
-            if (!Set(ref _hasUnread, value)) return;
+            var (was, message, at) = (_hasUnread, _attention, UnreadAt);
             if (value) UnreadAt = DateTime.UtcNow;
             else AttentionMessage = null;
-            UpdateFrame();
+            Set(ref _hasUnread, value);
+            if (was && !value) AttentionHandled?.Invoke(this, message, at);
         }
     }
 
     public bool IsActive
     {
         get => _isActive;
-        set { if (Set(ref _isActive, value)) UpdateFrame(); }
+        set => Set(ref _isActive, value);
     }
 
     private async Task AttachWhenReadyAsync(Task ready)
@@ -275,8 +287,12 @@ public sealed class PaneSession : ObservableObject, IDisposable
         {
             await _ui.InvokeAsync(() =>
             {
-                MessageBox.Show($"Could not start '{Profile.Name}':\n{ex.Message}", "aghouse",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                // Say which shell, what Windows reported, and what to try next.
+                MessageBox.Show(
+                    $"aghouse couldn't start {Profile.Name}.\n\n"
+                    + $"{ex.Message.Trim()}\nCommand: {Profile.CommandLine}\n\n"
+                    + "Check that it's installed, or open a workspace with another shell from the menu next to the + button.",
+                    "aghouse", MessageBoxButton.OK, MessageBoxImage.Warning);
                 Exited?.Invoke(this);
             });
             return;
@@ -316,6 +332,7 @@ public sealed class PaneSession : ObservableObject, IDisposable
     /// <summary>Runs on the ConPTY reader thread for every output chunk. Observes only.</summary>
     private void OnOutput(ref Span<char> str)
     {
+        Mirror.Feed(str);
         _parser.Feed(str, _scratch);
         if (_scratch.Count == 0) return;
         var events = _scratch.ToArray();
@@ -380,41 +397,6 @@ public sealed class PaneSession : ObservableObject, IDisposable
         return null;
     }
 
-    /// <summary>
-    /// Three pane states, kept apart by shape and words, not colour alone:
-    /// needs you = 2px accent ring + tinted "Needs you" header; focused (split only) = 1px primary-text border
-    /// + bright header text; at rest = 1px control stroke + dim header text.
-    /// </summary>
-    private void UpdateFrame()
-    {
-        if (Frame is null) return; // ShowHeader can run before the frame exists
-        var focused = IsActive && ShowHeader;
-
-        if (HasUnread)
-        {
-            Frame.SetResourceReference(Border.BorderBrushProperty, "AccentFillColorDefaultBrush");
-            Frame.BorderThickness = new Thickness(2);
-        }
-        else if (focused)
-        {
-            Frame.SetResourceReference(Border.BorderBrushProperty, "TextFillColorPrimaryBrush");
-            Frame.BorderThickness = new Thickness(1);
-        }
-        else
-        {
-            Frame.SetResourceReference(Border.BorderBrushProperty, "ControlStrokeColorDefaultBrush");
-            Frame.BorderThickness = new Thickness(1);
-        }
-
-        _headerTint.Visibility = HasUnread ? Visibility.Visible : Visibility.Collapsed;
-        _attentionText.Visibility = HasUnread ? Visibility.Visible : Visibility.Collapsed;
-        _headerText.SetResourceReference(TextBlock.ForegroundProperty,
-            focused ? "TextFillColorPrimaryBrush" : HasUnread ? "TextFillColorSecondaryBrush" : "TextFillColorTertiaryBrush");
-        _headerText.FontWeight = focused ? FontWeights.SemiBold : FontWeights.Normal;
-        // Keep the terminal from shifting when the border gets thicker.
-        var t = Frame.BorderThickness.Left;
-        Frame.Padding = new Thickness(5 - t, 3 - t, 3 - t, 3 - t);
-    }
 
     private static string? ValidDirectory(string? dir) =>
         !string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir) ? dir : null;

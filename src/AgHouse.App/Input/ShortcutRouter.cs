@@ -9,6 +9,9 @@ namespace AgHouse.App.Input;
 public enum AppAction
 {
     NewWorkspace,
+    NewTab,
+    NextTab,
+    PreviousTab,
     ClosePane,
     SplitRight,
     SplitDown,
@@ -20,6 +23,15 @@ public enum AppAction
     RenameWorkspace,
     Copy,
     Paste,
+    CloseWorkspace,
+    ZoomPane,
+    Find,
+    FontBigger,
+    FontSmaller,
+    FontReset,
+    CommandPalette,
+    WaitingList,
+    Settings,
 }
 
 public readonly record struct Shortcut(AppAction Action, int Index = 0, Direction Direction = Direction.Left);
@@ -43,6 +55,9 @@ public sealed class ShortcutRouter : IDisposable
 
     /// <summary>Right click on a window: return true to swallow (terminal copy/paste).</summary>
     public Func<IntPtr, bool>? RightClickHandler { get; set; }
+
+    /// <summary>Ctrl+wheel on a window (+1 up, -1 down): return true when it was a terminal and got zoomed.</summary>
+    public Func<IntPtr, int, bool>? CtrlWheelHandler { get; set; }
 
     /// <summary>True if the window handle belongs to a terminal pane.</summary>
     public Func<IntPtr, bool>? IsTerminalWindow { get; set; }
@@ -97,13 +112,22 @@ public sealed class ShortcutRouter : IDisposable
             case Win32.WM_KEYDOWN or Win32.WM_SYSKEYDOWN:
                 if (Map((int)msg.wParam) is { } shortcut && Handler?.Invoke(shortcut) == true) handled = true;
                 break;
+
+            case Win32.WM_MOUSEWHEEL when Win32.IsDown(Win32.VK_CONTROL) && !Win32.IsDown(Win32.VK_SHIFT) && !Win32.IsDown(Win32.VK_MENU):
+                // Ctrl+wheel over a terminal: that pane's text size, as in Windows Terminal and browsers.
+                var delta = (short)(((long)msg.wParam >> 16) & 0xFFFF);
+                if (delta != 0 && CtrlWheelHandler?.Invoke(msg.hwnd, delta > 0 ? 1 : -1) == true) handled = true;
+                break;
         }
         if (handled && msg.message == Win32.WM_RBUTTONDOWN) _swallowNextRightUp = true;
     }
 
     private bool _swallowNextRightUp;
 
-    private static Shortcut? Map(int vk)
+    /// <summary>Ctrl+D splits right, as cmux's ⌘D does. Off gives Ctrl+D (EOF, exit) back to the terminal.</summary>
+    public bool CtrlDSplits { get; set; } = true;
+
+    private Shortcut? Map(int vk)
     {
         var ctrl = Win32.IsDown(Win32.VK_CONTROL);
         var shift = Win32.IsDown(Win32.VK_SHIFT);
@@ -113,18 +137,29 @@ public sealed class ShortcutRouter : IDisposable
         {
             return vk switch
             {
-                'N' or 'T' => new Shortcut(AppAction.NewWorkspace),
+                'N' => new Shortcut(AppAction.NewWorkspace),
+                'T' => new Shortcut(AppAction.NewTab), // as in Windows Terminal
+                Win32.VK_OEM_6 => new Shortcut(AppAction.NextTab),      // Ctrl+Shift+] (cmux)
+                Win32.VK_OEM_4 => new Shortcut(AppAction.PreviousTab),  // Ctrl+Shift+[
                 'W' => new Shortcut(AppAction.ClosePane),
-                'D' => new Shortcut(AppAction.SplitRight),
-                'E' => new Shortcut(AppAction.SplitDown),
+                // cmux pairing: Ctrl+D right, Ctrl+Shift+D down. Ctrl+Shift+E stays as a down alias.
+                'D' or 'E' => new Shortcut(AppAction.SplitDown),
                 'U' => new Shortcut(AppAction.JumpToUnread),
                 'R' => new Shortcut(AppAction.RenameWorkspace),
                 'C' => new Shortcut(AppAction.Copy),
                 'V' => new Shortcut(AppAction.Paste),
                 Win32.VK_TAB => new Shortcut(AppAction.PreviousWorkspace),
+                // Windows Terminal's palette and find keys; Enter zooms the pane (togglePaneZoom).
+                'P' => new Shortcut(AppAction.CommandPalette),
+                'F' => new Shortcut(AppAction.Find),
+                Win32.VK_RETURN => new Shortcut(AppAction.ZoomPane),
+                'I' => new Shortcut(AppAction.WaitingList),
                 _ => null,
             };
         }
+
+        // Ctrl+Alt+W: close the whole workspace. Ctrl+Shift+W already closes a tab or pane.
+        if (ctrl && alt && !shift && vk == 'W') return new Shortcut(AppAction.CloseWorkspace);
 
         if (alt && shift && !ctrl)
         {
@@ -152,6 +187,14 @@ public sealed class ShortcutRouter : IDisposable
         {
             if (vk is >= '1' and <= '9') return new Shortcut(AppAction.SelectWorkspace, vk - '1');
             if (vk == Win32.VK_TAB) return new Shortcut(AppAction.NextWorkspace);
+            if (vk == 'D' && CtrlDSplits) return new Shortcut(AppAction.SplitRight);
+            if (vk == Win32.VK_NEXT) return new Shortcut(AppAction.NextTab);      // Ctrl+PageDown
+            if (vk == Win32.VK_PRIOR) return new Shortcut(AppAction.PreviousTab); // Ctrl+PageUp
+            // Text size, as in Windows Terminal: Ctrl+= / Ctrl+- / Ctrl+0 (and the number pad's + / -).
+            if (vk is Win32.VK_OEM_PLUS or Win32.VK_ADD) return new Shortcut(AppAction.FontBigger);
+            if (vk is Win32.VK_OEM_MINUS or Win32.VK_SUBTRACT) return new Shortcut(AppAction.FontSmaller);
+            if (vk is '0' or Win32.VK_NUMPAD0) return new Shortcut(AppAction.FontReset);
+            if (vk == Win32.VK_OEM_COMMA) return new Shortcut(AppAction.Settings);
         }
 
         return null;

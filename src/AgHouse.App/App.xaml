@@ -7,6 +7,49 @@
     <Application.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
+        <local:IsNotNullConverter x:Key="IsNotNull" />
         <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+        <!-- Fluent's two-stroke keyboard focus ring on a 4px row. Shows only for keyboard focus; never the accent. -->
+        <Style x:Key="RowFocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border CornerRadius="4" BorderThickness="2" SnapsToDevicePixels="True"
+                                BorderBrush="{DynamicResource FocusStrokeColorOuterBrush}">
+                            <Border CornerRadius="2" BorderThickness="1"
+                                    BorderBrush="{DynamicResource FocusStrokeColorInnerBrush}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Rows in the palette, waiting list and find results: compact, and the selected row takes the
+             subtle fill, never the accent (the accent means only "selected workspace" and "Needs you"). -->
+        <Style x:Key="QuietListItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="10,5,10,5" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bg" CornerRadius="4" Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Application.Resources>
 </Application>

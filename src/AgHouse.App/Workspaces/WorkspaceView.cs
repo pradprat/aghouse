@@ -18,12 +18,17 @@ public sealed class WorkspaceView : Grid
     /// <summary>A splitter was dragged (the tree's ratios changed).</summary>
     public event Action? RatiosChanged;
 
-    public void Render(PaneTree tree, Func<string, FrameworkElement> frameFor)
+    /// <summary>
+    /// Lays out the tree, or only <paramref name="zoomedId"/>'s frame when a pane is zoomed. The other
+    /// frames are detached, and their terminals keep running out of sight.
+    /// </summary>
+    public void Render(PaneTree tree, Func<string, FrameworkElement> frameFor, string? zoomedId = null)
     {
         var leaves = tree.Leaves();
         foreach (var leaf in leaves) Detach(frameFor(leaf.PaneId));
         Children.Clear();
-        if (tree.Root is not null) Children.Add(Build(tree.Root, frameFor));
+        if (zoomedId is not null && leaves.Any(l => l.PaneId == zoomedId)) Children.Add(frameFor(zoomedId));
+        else if (tree.Root is not null) Children.Add(Build(tree.Root, frameFor));
     }
 
     public static void Detach(FrameworkElement element)

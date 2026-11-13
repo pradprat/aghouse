@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using AgHouse.Core.Layout;
 
@@ -15,6 +16,12 @@ public sealed class AppSettings
     public bool Toasts { get; set; } = true;
     /// <summary>"system" | "dark" | "light"</summary>
     public string Theme { get; set; } = "system";
+    /// <summary>Ctrl+D splits right (cmux's ⌘D). False gives Ctrl+D back to the terminal (EOF / exit).</summary>
+    public bool CtrlDSplits { get; set; } = true;
+    /// <summary>Flash the taskbar button when a pane needs you while aghouse is in the background.</summary>
+    public bool FlashTaskbar { get; set; } = true;
+
+    public AppSettings Clone() => (AppSettings)MemberwiseClone();
 }
 
 /// <summary>Why settings.json couldn't be used. <see cref="Summary"/> fits the sidebar footer; <see cref="Detail"/> is the parser's message.</summary>
@@ -71,6 +78,45 @@ public static class AppStorage
     {
         if (!File.Exists(SettingsPath)) Write(SettingsPath, new AppSettings());
     }
+
+    /// <summary>
+    /// Writes settings from the Settings window into settings.json. Only aghouse's own keys change;
+    /// anything else in the file stays. A file that can't be parsed is never overwritten: returns false.
+    /// </summary>
+    public static bool SaveSettings(AppSettings settings)
+    {
+        JsonObject root;
+        try
+        {
+            root = File.Exists(SettingsPath)
+                ? JsonNode.Parse(File.ReadAllText(SettingsPath)) as JsonObject ?? throw new JsonException("not an object")
+                : [];
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            Log.Write($"settings: not saving over an unreadable file: {ex.Message}");
+            return false;
+        }
+        foreach (var (key, value) in JsonSerializer.SerializeToNode(settings, Json)!.AsObject())
+        {
+            root[key] = value?.DeepClone();
+        }
+        try
+        {
+            Directory.CreateDirectory(Dir);
+            var tmp = SettingsPath + ".tmp";
+            File.WriteAllText(tmp, root.ToJsonString(Json));
+            File.Move(tmp, SettingsPath, overwrite: true);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Write($"settings: write failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    public static bool SessionExists => File.Exists(SessionPath);
 
     public static SessionDto? LoadSession() => Read<SessionDto>(SessionPath);
 

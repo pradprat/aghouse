@@ -32,6 +32,8 @@
   <ItemGroup>
     <None Include="ShellIntegration\**" CopyToOutputDirectory="PreserveNewest" />
     <Resource Include="Assets\aghouse.ico" />
+    <!-- Copied from assets/png (build-icons.ps1): the mark on the welcome screen and in About. -->
+    <Resource Include="Assets\aghouse-128.png" />
   </ItemGroup>
 
 </Project>

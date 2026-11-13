@@ -1,0 +1,12 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- Single source for the app version; build/publish.ps1 and the installer read it from here. -->
+    <Version>0.1.0</Version>
+    <Product>aghouse</Product>
+    <Company>aghouse</Company>
+    <!-- The UI is English-only; don't ship the runtime's localized resource folders (cs/, de/, ...). -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+</Project>
