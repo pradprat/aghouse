@@ -9,6 +9,7 @@ using AgHouse.App.Input;
 using AgHouse.App.Interop;
 using AgHouse.App.Notifications;
 using AgHouse.App.Persistence;
+using AgHouse.App.Surfaces;
 using AgHouse.App.Terminal;
 using AgHouse.Core.Ipc;
 using AgHouse.Core.Layout;
@@ -427,8 +428,11 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         var (ws, pane) = FindPane(paneId);
         if (pane is null) return;
         var what = ws?.SlotOf(pane) is { Tabs.Count: > 1 } ? "tab" : "pane";
-        if (pane.DescribeRunning() is { } running && !Confirm(
-                $"{running} is still running in “{pane.Label}”.\n\nClose the {what} and end it?"))
+        if (pane.DescribeRunning() is { } running && !ConfirmDialog.Ask(_window,
+                $"Close this {what}?",
+                $"“{TitleText.WithoutStatusGlyphs(running)}” is still running here. Closing the {what} ends it."
+                + (pane.HasUnread ? " It's waiting on you." : ""),
+                "Close and _end it"))
         {
             // The dialog is modal but the pipe API isn't: the pane may have gone while it was open.
             if (FindPane(paneId).Pane is { } still) still.FocusTerminal();
@@ -440,10 +444,12 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     /// <summary>A person asked to close a whole workspace (context menu). Same rule as panes.</summary>
     public void RequestCloseWorkspace(Workspace ws)
     {
-        var busy = ws.Panes.Values.Select(p => p.DescribeRunning()).OfType<string>().ToList();
-        if (busy.Count > 0 && !Confirm(busy.Count == 1
-                ? $"{busy[0]} is still running in “{ws.Name}”.\n\nClose the workspace and end it?"
-                : $"{busy.Count} programs are still running in “{ws.Name}” ({string.Join(", ", busy)}).\n\nClose the workspace and end them?"))
+        var busy = ws.Panes.Values.Select(p => RunningItem(ws, p, withWorkspace: false)).OfType<ConfirmItem>().ToList();
+        if (busy.Count > 0 && !ConfirmDialog.Ask(_window,
+                $"Close “{ws.Name}”?",
+                busy.Count == 1 ? "Closing the workspace ends this program:" : $"Closing the workspace ends these {busy.Count} programs:",
+                busy.Count == 1 ? "Close and _end it" : "Close and _end them",
+                busy))
         {
             if (Workspaces.Contains(ws)) ws.ActivePane?.FocusTerminal();
             return;
@@ -459,25 +465,32 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     public bool ConfirmQuit()
     {
         var busy = Workspaces
-            .SelectMany(w => w.Panes.Values.Select(p => (Running: p.DescribeRunning(), Workspace: w.Name)))
-            .Where(x => x.Running is not null)
-            .Select(x => $"{x.Running} in “{x.Workspace}”")
+            .SelectMany(w => w.Panes.Values.Select(p => RunningItem(w, p, withWorkspace: true)))
+            .OfType<ConfirmItem>()
             .ToList();
         if (busy.Count == 0) return true;
 
         // A dialog owned by a minimized window would open hidden. Not BringToFront(): Show() throws while closing.
         if (_window.WindowState == WindowState.Minimized) _window.WindowState = WindowState.Normal;
         _window.Activate();
-        const int shown = 5;
-        var message = busy.Count == 1
-            ? $"{busy[0]} is still running.\n\nQuit aghouse and end it?"
-            : $"{busy.Count} programs are still running:\n\n"
-              + string.Join("\n", busy.Take(shown).Select(b => "•  " + b))
-              + (busy.Count > shown ? $"\n•  and {busy.Count - shown} more" : "")
-              + "\n\nQuit aghouse and end them?";
-        if (Confirm(message)) return true;
+        // Session restore brings back layout and folders, never processes: say so, it's the real cost.
+        var body = (busy.Count == 1 ? "Quitting ends this program." : $"Quitting ends these {busy.Count} programs.")
+                   + " Next time, aghouse reopens your workspaces and folders, not the programs.";
+        if (ConfirmDialog.Ask(_window, "Quit aghouse?", body, busy.Count == 1 ? "_Quit and end it" : "_Quit and end them", busy))
+            return true;
         _selected?.ActivePane?.FocusTerminal();
         return false;
+    }
+
+    /// <summary>A pane's running program as a confirmation row, or null when it's sitting at a prompt.</summary>
+    private static ConfirmItem? RunningItem(Workspace ws, PaneSession pane, bool withWorkspace)
+    {
+        if (pane.DescribeRunning() is not { } running) return null;
+        return new ConfirmItem(
+            TitleText.WithoutStatusGlyphs(running),
+            withWorkspace ? $"{ws.Name} › {pane.Label}" : pane.Label,
+            pane.HasUnread,
+            ws.AgentStateOf(pane.Id));
     }
 
     /// <summary><c>aghouse quit --force</c>: the window closes without asking about running programs.</summary>
@@ -491,11 +504,6 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         _window.Close();
         QuitForced = false; // the dialog said No: a later ✕ asks again
     }
-
-    /// <summary>Warning dialog whose default button is the safe one, so a stray Enter never ends a process.</summary>
-    private bool Confirm(string message) =>
-        MessageBox.Show(_window, message, "aghouse", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
-        == MessageBoxResult.Yes;
 
     public void ClosePane(string paneId)
     {
@@ -905,7 +913,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         if (!fromPalette && !_window.IsActive) return false;
         // Let a rename box (workspace or tab) keep its keys.
         if ((Workspaces.Any(w => w.IsRenaming) || System.Windows.Input.Keyboard.FocusedElement is TextBox)
-            && s.Action is AppAction.Copy or AppAction.Paste) return false;
+            && s.Action is AppAction.Copy or AppAction.Paste or AppAction.PasteImage) return false;
 
         switch (s.Action)
         {
@@ -926,6 +934,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             case AppAction.RenameWorkspace: if (_selected is not null) _selected.IsRenaming = true; return true;
             case AppAction.Copy: return CopySelection(_selected?.ActivePane);
             case AppAction.Paste: return Paste(_selected?.ActivePane);
+            case AppAction.PasteImage: return PasteImage(_selected?.ActivePane);
             case AppAction.CloseWorkspace: if (_selected is not null) RequestCloseWorkspace(_selected); return true;
             case AppAction.ZoomPane: ToggleZoom(); return true;
             case AppAction.Find: OpenFind(); return true;
@@ -992,6 +1001,22 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Ctrl+V with an image (and no text) on the clipboard: send Alt+V (ESC v), which is Claude Code's
+    /// image-paste key on Windows. Claude reads the image from the clipboard itself. Anything else
+    /// returns false so Ctrl+V reaches the terminal unchanged (shells, vim's block select, ...).
+    /// </summary>
+    private static bool PasteImage(PaneSession? pane)
+    {
+        if (pane is null) return false;
+        try
+        {
+            if (Clipboard.ContainsText() || !(Clipboard.ContainsImage() || Clipboard.ContainsData(DataFormats.Dib))) return false;
+        }
+        catch { return false; }
+        pane.SendText("\u001bv");
+        return true;
+    }
 
     // ───────────────────────────── Ports ─────────────────────────────
 

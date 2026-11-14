@@ -139,6 +139,11 @@ components:
   settings-row:
     backgroundColor: "transparent"
     padding: "12px 0"
+  confirm-dialog:
+    backgroundColor: "LayerFillColorAlt over Mica; footer band on Mica"
+    typography: "20px / 600 heading, {typography.body} body"
+    padding: "20px 24px 24px 24px"
+    width: "460px"
 ---
 
 # Design System: aghouse
@@ -212,7 +217,7 @@ These are fixed because the terminal is a native child window with its own rende
 - **Icon** (Segoe Fluent Icons, 10–13px): add (`E710`), chevron (`E70D`), settings (`E713`), close (`E711`). The git branch icon is a hand-drawn 11px stroke path at 1.4 thickness.
 
 ### Named Rules
-**The System Voice Rule.** Never load a web font or a custom display face. Hierarchy comes from weight (400 vs 600) and from the three text brushes, not from size jumps. The whole UI spans 11–14px.
+**The System Voice Rule.** Never load a web font or a custom display face. Hierarchy comes from weight (400 vs 600) and from the three text brushes, not from size jumps. The whole UI spans 11–14px, except the confirmation dialog's 20px heading, which is WinUI's own dialog title.
 
 ## Layout
 
@@ -296,9 +301,14 @@ The frame around each terminal. It's the main place attention shows up. Its thre
 - **Pane name:** a name the user gave the tab, else the title the running program set (an agent's current task, "vim", a cmd command), else the folder, else the shell ("Windows PowerShell"). A folder that only repeats the workspace's name is skipped for the shell's name, and names still shared by siblings get "(2)", "(3)" in layout order. The same name is used in confirmations and screen-reader announcements, so three panes in one repo never all read "aghouse".
 
 ### Confirmations
-The stock Windows message box, never a custom dialog. It's used only before something irreversible happens to running work, such as closing a pane or workspace, or quitting aghouse, while a program is still running. Quitting lists every running program and where it runs, up to five. An idle prompt closes without asking.
-- **Wording:** names the program and the place, then asks the question: "PING.EXE is still running in “aghouse”. Close the pane and end it?"
-- **Buttons:** Yes / No with the warning icon. **No** is the default button, so a stray Enter never ends a process.
+One Fluent dialog (`ConfirmDialog`) in WinUI ContentDialog's shape, shown only before something irreversible happens to running work: closing a pane or tab, closing a workspace, or quitting aghouse while a program is still running. An idle prompt closes without asking. It replaced the Win32 MessageBox, which stayed light in dark mode and drew an agent's title glyph as a box.
+- **Window:** an owned modal window with the system title bar ("aghouse", ✕ only), 460px wide, sized to its content, centred on the main window. The question area sits on `LayerFillColorAltBrush`; the footer band is plain Mica under a `CardStrokeColorDefaultBrush` hairline.
+- **Heading:** the question, 20px semibold, WinUI's dialog title and the one place type goes above 14px: "Quit aghouse?", "Close “aghouse dev”?", "Close this pane?".
+- **Body:** one 14px sentence saying what it costs: "Quitting ends these 3 programs. Next time, aghouse reopens your workspaces and folders, not the programs."
+- **Rows** (quit and workspace close): the program or task in Body type, "workspace › pane" under it in Meta, Secondary Text (just the pane when the heading already names the workspace). On the right, **Needs you** (600) or the agent's state as the sidebar's neutral chip ("Working"). Waiting agents sort first, then working ones. Five rows, then "and N more" with the rest in its tooltip. Closing a single pane uses the sentence alone ("“Fix the build” is still running here. Closing the pane ends it. It's waiting on you.").
+- **Names:** a program's title loses leading status glyphs (Claude Code's `✳`, braille spinners) before it is shown, because they are a live status light, not part of the name.
+- **Buttons:** two equal-width stock buttons. The action names itself ("Quit and end them", "Close and end it"; Alt+Q / Alt+E) and is never the accent, because ending work must not look like the inviting choice. **Cancel** is the default and has focus, so Enter and Esc both keep the work running. No warning icon: the verb carries the warning.
+- Other notices (Connect Claude Code, a settings.json that won't parse, a shell that failed to start) stay the stock MessageBox.
 
 ### Sidebar footer status
 One Caption line beside the settings gear. It is a ghost button (transparent, Fluent hover fill) that opens what its state is about. It shows the most important of four states:

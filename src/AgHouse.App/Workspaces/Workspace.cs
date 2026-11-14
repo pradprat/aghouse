@@ -184,6 +184,10 @@ public sealed class Workspace : ObservableObject
         if (_status.RemoveAll(s => s.Key == key && (!agent || s.PaneId == paneId)) > 0) RebuildChips();
     }
 
+    /// <summary>What the agent in one pane last reported ("Working"), or null.</summary>
+    public string? AgentStateOf(string paneId) =>
+        _status.FirstOrDefault(s => s.Key == AgentKey && s.PaneId == paneId)?.Text;
+
     /// <summary>A pane went away: its agent can't be working any more.</summary>
     public void ForgetPane(string paneId)
     {
