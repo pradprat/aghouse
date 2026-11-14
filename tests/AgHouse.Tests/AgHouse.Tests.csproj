@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\AgHouse.Core\AgHouse.Core.csproj" />
+    <!-- The CLI's command table, so tests can check the agent guide only names real commands. -->
+    <ProjectReference Include="..\..\src\AgHouse.Cli\AgHouse.Cli.csproj" />
   </ItemGroup>
 
   <ItemGroup>

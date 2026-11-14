@@ -36,8 +36,8 @@ public sealed class PaneSession : ObservableObject, IDisposable
     private int _baseFontSize;
     private int _fontSize;
 
-    public const int MinFontSize = 6;
-    public const int MaxFontSize = 48;
+    public const int MinFontSize = AgHouse.Core.Settings.SettingKeys.MinFontSize;
+    public const int MaxFontSize = AgHouse.Core.Settings.SettingKeys.MaxFontSize;
 
     public PaneSession(string id, string workspaceId, ShellProfile profile, string? cwd, TerminalTheme theme, Color background,
         string fontFamily, int fontSize, IReadOnlyDictionary<string, string?> env)

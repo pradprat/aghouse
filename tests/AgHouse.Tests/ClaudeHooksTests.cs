@@ -35,7 +35,7 @@ public class ClaudeHooksTests : IDisposable
             """);
         var (added, backup) = ClaudeHooks.Install(SettingsPath);
 
-        Assert.Equal(4, added.Count);
+        Assert.Equal(ClaudeHooks.Events.Count, added.Count);
         Assert.True(File.Exists(backup));
         var root = JsonNode.Parse(File.ReadAllText(SettingsPath))!.AsObject();
         Assert.Equal("opus", root["model"]!.GetValue<string>());
@@ -63,7 +63,7 @@ public class ClaudeHooksTests : IDisposable
             """)!.AsObject();
         var status = ClaudeHooks.Inspect(root);
         Assert.Equal(HookState.Partial, status.State);
-        Assert.Equal(["Stop", "UserPromptSubmit", "PostToolUse"], status.Missing);
+        Assert.Equal(["Stop", "UserPromptSubmit", "PostToolUse", "SessionStart"], status.Missing);
     }
 
     [Fact]

@@ -23,6 +23,18 @@ public partial class MainWindow
         }
     }
 
+    /// <summary><c>aghouse run</c> for the actions only this window can do.</summary>
+    private void OnUiRequested(string action)
+    {
+        switch (action)
+        {
+            case "connect-claude-code": OpenSettings(SettingsPage.Integrations); break;
+            case "about": OpenSettings(SettingsPage.About); break;
+            case "edit-settings-file": OpenSettingsFile(); break;
+            case "open-logs": OpenLogsFolder(); break;
+        }
+    }
+
     private void BackToTerminal() => Controller.Selected?.ActivePane?.FocusTerminal();
 
     private bool Opening(FlyoutWindow flyout)

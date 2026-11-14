@@ -23,8 +23,11 @@ public static class ClaudeHooks
 {
     public const string Command = "aghouse claude-hook";
 
-    /// <summary>Notification and Stop raise "Needs you"; UserPromptSubmit and PostToolUse show "Working".</summary>
-    public static readonly IReadOnlyList<string> Events = ["Notification", "Stop", "UserPromptSubmit", "PostToolUse"];
+    /// <summary>
+    /// Notification and Stop raise "Needs you"; UserPromptSubmit and PostToolUse show "Working";
+    /// SessionStart tells Claude it is in aghouse and how to use the CLI (<see cref="AgentGuide"/>).
+    /// </summary>
+    public static readonly IReadOnlyList<string> Events = ["Notification", "Stop", "UserPromptSubmit", "PostToolUse", "SessionStart"];
 
     public static string DefaultPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "settings.json");

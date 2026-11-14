@@ -314,6 +314,8 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             // aghouse.exe (the CLI) lives next to the app.
             ["PATH"] = AppContext.BaseDirectory.TrimEnd('\\') + ";" + Environment.GetEnvironmentVariable("PATH"),
         };
+        // Launched from a Claude Code shell, the app carries that session's markers and NO_COLOR.
+        foreach (var name in InheritedEnv.ToUnset(Environment.GetEnvironmentVariables())) env[name] = null;
         foreach (var (k, v) in profile.Env) env[k] = v;
 
         var pane = new PaneSession(id, ws.Id, profile, cwd,
@@ -358,6 +360,40 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         Log.Write($"tab {source.Id} -> {pane.Id}");
         UpdateLabels(ws);
         FocusPane(pane.Id);
+        ScheduleSave();
+        return pane;
+    }
+
+    /// <summary>
+    /// Ends the pane's shell and starts a new one in its place: the same tab position and name, the
+    /// same folder and shell unless <paramref name="profileId"/> or <paramref name="cwd"/> say otherwise.
+    /// The new terminal gets a new pane id. Null if there's no such pane.
+    /// </summary>
+    public PaneSession? RestartPane(string paneId, string? profileId = null, string? cwd = null)
+    {
+        var (ws, old) = FindPane(paneId);
+        if (ws is null || old is null || ws.SlotOf(old) is not { } slot) return null;
+
+        var profile = profileId is null ? old.Profile : Profiles.Resolve(profileId);
+        var wasActive = ws.ActivePaneId == paneId;
+        // Inserted just before the old tab, so when it goes the new one is where it was (and shown if it was).
+        var pane = CreatePane(ws, slot, profile, cwd ?? old.Cwd, index: slot.Tabs.ToList().IndexOf(old));
+        pane.CustomName = old.CustomName;
+        Log.Write($"restart {paneId} -> {pane.Id}");
+
+        // Not ClosePane: that would take the slot or even the workspace with a lone pane.
+        ws.Panes.Remove(paneId);
+        ws.ForgetPane(paneId);
+        slot.Remove(old);
+        DisposePane(old); // its Exited then finds no pane to close
+
+        if (wasActive)
+        {
+            SetActive(ws, pane.Id);
+            if (ReferenceEquals(ws, _selected)) pane.FocusTerminal();
+        }
+        UpdateLabels(ws);
+        ws.RefreshSummary();
         ScheduleSave();
         return pane;
     }
@@ -442,6 +478,18 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         if (Confirm(message)) return true;
         _selected?.ActivePane?.FocusTerminal();
         return false;
+    }
+
+    /// <summary><c>aghouse quit --force</c>: the window closes without asking about running programs.</summary>
+    public bool QuitForced { get; private set; }
+
+    /// <summary>Close the window as its ✕ would. With <paramref name="force"/>, nothing asks first.</summary>
+    public void RequestQuit(bool force)
+    {
+        if (_shuttingDown) return;
+        QuitForced = force;
+        _window.Close();
+        QuitForced = false; // the dialog said No: a later ✕ asks again
     }
 
     /// <summary>Warning dialog whose default button is the safe one, so a stray Enter never ends a process.</summary>
@@ -678,6 +726,9 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     /// <summary>Why settings.json couldn't be read at launch, if it couldn't (Settings is read-only then).</summary>
     public SettingsProblem? SettingsProblem => _settingsProblem;
 
+    /// <summary>Settings changed (from the Settings window or <c>aghouse settings set</c>).</summary>
+    public event Action? SettingsChanged;
+
     /// <summary>
     /// Applies changed settings now, without a restart: the theme (chrome and terminals), the font,
     /// Ctrl+D, and the rest, which are read when they're used.
@@ -697,6 +748,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
 
         _shortcuts.CtrlDSplits = _settings.CtrlDSplits;
         Application.Current.Resources["SplitRightGesture"] = _settings.CtrlDSplits ? "Ctrl+D" : "Alt+Shift+=";
+        SettingsChanged?.Invoke();
 
         if (!appearance) return;
         Application.Current.ThemeMode = _settings.Theme switch
@@ -939,6 +991,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         pane.SendText(text.Replace("\r\n", "\r").Replace('\n', '\r'));
         return true;
     }
+
 
     // ───────────────────────────── Ports ─────────────────────────────
 

@@ -25,11 +25,12 @@ public partial class MainWindow : Window
         SizeChanged += (_, _) => Controller.PlacementChanged();
         StateChanged += (_, _) => Controller.PlacementChanged();
         Controller.SurfaceRequested += OnSurfaceRequested;
+        Controller.UiRequested += OnUiRequested;
         Controller.WelcomeRequested += ShowWelcome;
         Loaded += (_, _) => Controller.RestoreOrCreate();
         Closing += (_, e) =>
         {
-            if (!Controller.ConfirmQuit()) { e.Cancel = true; return; }
+            if (!Controller.QuitForced && !Controller.ConfirmQuit()) { e.Cancel = true; return; }
             Controller.Dispose();
         };
     }

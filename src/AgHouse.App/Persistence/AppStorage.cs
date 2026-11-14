@@ -116,6 +116,12 @@ public static class AppStorage
         }
     }
 
+    /// <summary>The settings as settings.json spells them (camelCase keys), for <c>aghouse settings</c>.</summary>
+    public static JsonObject ToJson(AppSettings settings) => JsonSerializer.SerializeToNode(settings, Json)!.AsObject();
+
+    /// <summary>The settings from a JSON object shaped like settings.json.</summary>
+    public static AppSettings FromJson(JsonObject json) => json.Deserialize<AppSettings>(Json) ?? new AppSettings();
+
     public static bool SessionExists => File.Exists(SessionPath);
 
     public static SessionDto? LoadSession() => Read<SessionDto>(SessionPath);

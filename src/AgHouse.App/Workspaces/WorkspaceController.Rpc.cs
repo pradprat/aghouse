@@ -1,6 +1,11 @@
 using System.Text.Json.Nodes;
+using AgHouse.App.Input;
+using AgHouse.App.Persistence;
+using AgHouse.App.Terminal;
 using AgHouse.Core.Ipc;
 using AgHouse.Core.Layout;
+using AgHouse.Core.Settings;
+using AgHouse.Core.Terminal;
 
 namespace AgHouse.App.Workspaces;
 
@@ -15,6 +20,10 @@ public sealed partial class WorkspaceController
                 return RpcResponse.Success(request.Id, Dispatch(request));
             }
             catch (RpcException ex)
+            {
+                return RpcResponse.Failure(request.Id, ex.Message);
+            }
+            catch (ArgumentException ex) // a key name or setting value the Core parsers rejected
             {
                 return RpcResponse.Failure(request.Id, ex.Message);
             }
@@ -90,8 +99,11 @@ public sealed partial class WorkspaceController
             case Methods.SendText:
             {
                 var id = RequirePane(r.Get("pane"));
-                FindPane(id).Pane!.SendText(r.Get("text") ?? "");
-                return null;
+                var pane = FindPane(id).Pane!;
+                // Where the output stood just before the text went in: wait-for from here can't miss the reply.
+                var cursor = pane.Mirror.Read(last: 0).Next;
+                pane.SendText(r.Get("text") ?? "");
+                return new JsonObject { ["paneId"] = id, ["cursor"] = cursor };
             }
 
             case Methods.Notify:
@@ -171,6 +183,124 @@ public sealed partial class WorkspaceController
 
             case Methods.Waiting:
                 return WaitingJson();
+
+            case Methods.ReadPane:
+            {
+                var id = RequirePane(r.Get("pane"));
+                long? since = null;
+                if (r.Get("since") is { Length: > 0 } s)
+                {
+                    since = long.TryParse(s, out var c) && c >= 0 ? c : throw new RpcException($"--since takes a cursor from an earlier read, not '{s}'.");
+                }
+                var last = 50;
+                if (r.Get("lines") is { Length: > 0 } l && (!int.TryParse(l, out last) || last < 0))
+                    throw new RpcException($"--lines takes a number, not '{l}'.");
+                var read = FindPane(id).Pane!.Mirror.Read(since, last);
+                return new JsonObject
+                {
+                    ["paneId"] = id,
+                    ["lines"] = new JsonArray(read.Lines.Select(x => (JsonNode?)JsonValue.Create(x)).ToArray()),
+                    ["partial"] = read.Partial,
+                    ["next"] = read.Next,
+                    ["truncated"] = read.Truncated,
+                };
+            }
+
+            case Methods.SendKeys:
+            {
+                var id = RequirePane(r.Get("pane"));
+                var keys = (r.Get("keys") ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (keys.Length == 0) throw new RpcException("Usage: send-keys <key>... (e.g. ctrl+c, up enter).");
+                FindPane(id).Pane!.SendText(KeyChords.ToSequence(keys));
+                return null;
+            }
+
+            case Methods.RenamePane:
+            {
+                var id = RequirePane(r.Get("pane"));
+                var (ws, pane) = FindPane(id);
+                pane!.CustomName = r.Get("name"); // empty goes back to the name aghouse picks
+                UpdateLabels(ws!);
+                ScheduleSave();
+                return new JsonObject { ["paneId"] = id, ["name"] = pane.Label };
+            }
+
+            case Methods.RestartPane:
+            {
+                var id = RequirePane(r.Get("pane"));
+                var profile = r.Get("profile");
+                if (profile is not null) RequireProfile(profile);
+                var pane = RestartPane(id, profile, r.Get("cwd")) ?? throw new RpcException($"Pane '{id}' not found.");
+                return new JsonObject { ["oldPaneId"] = id, ["paneId"] = pane.Id, ["profile"] = pane.Profile.Id };
+            }
+
+            case Methods.Profiles:
+            {
+                var list = new JsonArray();
+                foreach (var p in Profiles.All)
+                {
+                    list.Add(new JsonObject
+                    {
+                        ["id"] = p.Id,
+                        ["name"] = p.Name,
+                        ["commandLine"] = p.CommandLine,
+                        ["default"] = ReferenceEquals(p, Profiles.Default),
+                    });
+                }
+                return new JsonObject { ["profiles"] = list };
+            }
+
+            case Methods.GetSettings:
+                return SettingsJson(r.Get("key"));
+
+            case Methods.SetSetting:
+            {
+                var key = SettingKeys.Require(r.Get("key"));
+                var value = SettingKeys.Parse(key, r.Get("value"));
+                if (key.Name == "defaultProfile") value = RequireProfile(r.Get("value")!).Id;
+                if (key.Name == "fontFamily")
+                {
+                    var name = value!.GetValue<string>();
+                    var font = System.Windows.Media.Fonts.SystemFontFamilies
+                        .FirstOrDefault(f => string.Equals(f.Source, name, StringComparison.OrdinalIgnoreCase))
+                        ?? throw new RpcException($"The font '{name}' isn't installed. Monospaced fonts here: {string.Join(", ", MonospaceFonts())}.");
+                    value = font.Source;
+                }
+                return ChangeSetting(key, value);
+            }
+
+            case Methods.ResetSetting:
+            {
+                var key = SettingKeys.Require(r.Get("key"));
+                return ChangeSetting(key, key.Default?.DeepClone());
+            }
+
+            case Methods.Actions:
+            {
+                var list = new JsonArray();
+                foreach (var a in ActionNames.All)
+                {
+                    list.Add(new JsonObject { ["name"] = a.Name, ["description"] = a.Description, ["gesture"] = a.Gesture });
+                }
+                return new JsonObject { ["actions"] = list };
+            }
+
+            case Methods.RunAction:
+            {
+                var info = ActionNames.Find(r.Get("action"))
+                           ?? throw new RpcException($"Unknown action '{r.Get("action")}'. Run 'aghouse actions' for the list.");
+                if (r.Get("pane") is { } target) FocusPane(RequirePane(target));
+                RunNamedAction(info.Name);
+                return new JsonObject { ["action"] = info.Name };
+            }
+
+            case Methods.Quit:
+            {
+                var force = r.Get("force") is "true" or "1" or "yes";
+                // Answer first: the pipe goes away with the window.
+                _ = Task.Delay(150).ContinueWith(_ => _window.Dispatcher.BeginInvoke(() => RequestQuit(force)));
+                return new JsonObject { ["quitting"] = true, ["force"] = force };
+            }
 
             default:
                 throw new RpcException($"Unknown method '{r.Method}'.");
@@ -252,6 +382,112 @@ public sealed partial class WorkspaceController
             });
         }
         return new JsonObject { ["waiting"] = waiting, ["earlier"] = earlier };
+    }
+
+    /// <summary>Every setting a script may change (or just <paramref name="key"/>), with its value and what it takes.</summary>
+    private JsonObject SettingsJson(string? key)
+    {
+        var current = AppStorage.ToJson(_settings);
+        JsonObject Entry(SettingKey k) => new()
+        {
+            ["key"] = k.Name,
+            ["value"] = current[k.Name]?.DeepClone(),
+            ["type"] = k.Type.ToString().ToLowerInvariant(),
+            ["values"] = k.ValueHint,
+            ["default"] = k.Default?.DeepClone(),
+            ["description"] = k.Description,
+        };
+        if (key is not null) return Entry(SettingKeys.Require(key));
+        return new JsonObject
+        {
+            ["path"] = AppStorage.SettingsPath,
+            ["readOnly"] = _settingsProblem is not null,
+            ["problem"] = _settingsProblem is { } p ? $"{p.Summary}: {p.Detail}" : null,
+            ["settings"] = new JsonArray(SettingKeys.All.Select(k => (JsonNode?)Entry(k)).ToArray()),
+        };
+    }
+
+    /// <summary>The same path as a change in the Settings window: apply now, then write settings.json.</summary>
+    private JsonObject ChangeSetting(SettingKey key, JsonNode? value)
+    {
+        if (_settingsProblem is { } problem)
+            throw new RpcException($"{problem.Summary}, so settings are read-only until it's fixed and aghouse restarts ({AppStorage.SettingsPath}).");
+        var json = AppStorage.ToJson(_settings);
+        json[key.Name] = value;
+        ApplySettings(AppStorage.FromJson(json));
+        var saved = AppStorage.SaveSettings(_settings);
+        return new JsonObject
+        {
+            ["key"] = key.Name,
+            ["value"] = AppStorage.ToJson(_settings)[key.Name]?.DeepClone(),
+            ["saved"] = saved,
+            ["note"] = saved ? null : "Applied until aghouse closes, but settings.json couldn't be written. The log has the details.",
+        };
+    }
+
+    private ShellProfile RequireProfile(string id) =>
+        Profiles.All.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase)
+                                         || string.Equals(p.Name, id, StringComparison.OrdinalIgnoreCase))
+        ?? throw new RpcException($"Unknown profile '{id}'. Profiles: {string.Join(", ", Profiles.All.Select(p => p.Id))}.");
+
+    /// <summary>Things only the main window can do (open a Settings page, a file, a folder), by action name.</summary>
+    public event Action<string>? UiRequested;
+
+    /// <summary>An action from <see cref="ActionNames"/>, run as if its shortcut was pressed.</summary>
+    private void RunNamedAction(string name)
+    {
+        if (name.StartsWith("select-workspace-", StringComparison.Ordinal))
+        {
+            Run(AppAction.SelectWorkspace, index: int.Parse(name["select-workspace-".Length..]) - 1);
+            return;
+        }
+        AppAction? action = name switch
+        {
+            "new-workspace" => AppAction.NewWorkspace,
+            "new-tab" => AppAction.NewTab,
+            "next-tab" => AppAction.NextTab,
+            "previous-tab" => AppAction.PreviousTab,
+            "split-right" => AppAction.SplitRight,
+            "split-down" => AppAction.SplitDown,
+            "close-pane" => AppAction.ClosePane,
+            "zoom-pane" => AppAction.ZoomPane,
+            "next-workspace" => AppAction.NextWorkspace,
+            "previous-workspace" => AppAction.PreviousWorkspace,
+            "jump-to-unread" => AppAction.JumpToUnread,
+            "rename-workspace" => AppAction.RenameWorkspace,
+            "close-workspace" => AppAction.CloseWorkspace,
+            "copy" => AppAction.Copy,
+            "paste" => AppAction.Paste,
+            "find" => AppAction.Find,
+            "font-bigger" => AppAction.FontBigger,
+            "font-smaller" => AppAction.FontSmaller,
+            "font-reset" => AppAction.FontReset,
+            "command-palette" => AppAction.CommandPalette,
+            "waiting-list" => AppAction.WaitingList,
+            "settings" => AppAction.Settings,
+            _ => null,
+        };
+        Direction? direction = name switch
+        {
+            "focus-left" => Direction.Left,
+            "focus-right" => Direction.Right,
+            "focus-up" => Direction.Up,
+            "focus-down" => Direction.Down,
+            _ => null,
+        };
+
+        // Something the user is meant to see or type into opens in front, not behind another app.
+        if (action is AppAction.CommandPalette or AppAction.WaitingList or AppAction.Settings or AppAction.RenameWorkspace
+                or AppAction.Find or AppAction.ClosePane or AppAction.CloseWorkspace
+            || name is "connect-claude-code" or "about")
+        {
+            BringToFront();
+        }
+
+        if (action is { } a) Run(a);
+        else if (direction is { } d) Run(AppAction.Focus, direction: d);
+        else if (UiRequested is { } ui) ui(name);
+        else throw new RpcException($"'{name}' can't run here.");
     }
 
     private string RequirePane(string? id)

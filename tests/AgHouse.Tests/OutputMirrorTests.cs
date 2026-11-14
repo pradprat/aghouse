@@ -71,4 +71,65 @@ public class OutputMirrorTests
     {
         Assert.Empty(Fed("x\n").Find("  "));
     }
+
+    [Fact]
+    public void Read_LastLines_AndCursorCountsFinishedLines()
+    {
+        var read = Fed("a\r\nb\r\nc\r\n").Read(last: 2);
+        Assert.Equal(["b", "c"], read.Lines);
+        Assert.Equal(3, read.Next);
+        Assert.Null(read.Partial);
+        Assert.False(read.Truncated);
+    }
+
+    [Fact]
+    public void Read_Since_ReturnsOnlyWhatCameAfter()
+    {
+        var m = Fed("old\r\n");
+        var cursor = m.Read(last: 0).Next;
+        m.Feed("new 1\r\nnew 2\r\n");
+        var read = m.Read(since: cursor);
+        Assert.Equal(["new 1", "new 2"], read.Lines);
+        Assert.Equal(3, read.Next);
+        Assert.Empty(m.Read(since: read.Next).Lines);
+    }
+
+    [Fact]
+    public void Read_UnfinishedLine_ComesSeparately_AndDoesNotMoveTheCursor()
+    {
+        var m = Fed("done\r\nPS C:\\> ");
+        var read = m.Read();
+        Assert.Equal(["done"], read.Lines);
+        Assert.Equal("PS C:\\>", read.Partial);
+        Assert.Equal(1, read.Next);
+    }
+
+    [Fact]
+    public void Read_LastZero_GivesOnlyTheCursor()
+    {
+        var read = Fed("a\nb\n").Read(last: 0);
+        Assert.Empty(read.Lines);
+        Assert.Equal(2, read.Next);
+    }
+
+    [Fact]
+    public void Read_CursorKeepsCountingPastDroppedLines()
+    {
+        var m = new OutputMirror(maxLines: 2);
+        m.Feed("a\nb\nc\nd\n");
+        Assert.Equal(4, m.Read().Next);
+        var read = m.Read(since: 1); // b was dropped
+        Assert.True(read.Truncated);
+        Assert.Equal(["c", "d"], read.Lines);
+        Assert.False(m.Read(since: 2).Truncated);
+        Assert.Equal(["d"], m.Read(since: 3).Lines);
+    }
+
+    [Fact]
+    public void Read_CursorFromTheFuture_GivesNothing()
+    {
+        var read = Fed("a\n").Read(since: 99);
+        Assert.Empty(read.Lines);
+        Assert.Equal(1, read.Next);
+    }
 }

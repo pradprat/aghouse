@@ -26,6 +26,7 @@ public sealed class OutputMirror(int maxLines = 10_000)
     private readonly StringBuilder _params = new();
     private State _state;
     private bool _pendingCr;
+    private long _dropped; // lines that fell off the front: a line's cursor is _dropped + its index
 
     public int MaxLines { get; } = Math.Max(1, maxLines);
 
@@ -131,7 +132,44 @@ public sealed class OutputMirror(int maxLines = 10_000)
     {
         _lines.Enqueue(_line.ToString().TrimEnd());
         _line.Clear();
-        while (_lines.Count > MaxLines) _lines.Dequeue();
+        while (_lines.Count > MaxLines)
+        {
+            _lines.Dequeue();
+            _dropped++;
+        }
+    }
+
+    /// <summary>
+    /// What a script reads back (<c>aghouse read-pane</c>). With <paramref name="since"/>, the finished
+    /// lines from that cursor on; without it, the last <paramref name="last"/> finished lines. The line
+    /// still being written (a prompt, "Password:") comes separately in <see cref="MirrorRead.Partial"/>,
+    /// because it can still change. Pass <see cref="MirrorRead.Next"/> back as <paramref name="since"/>
+    /// to get only what came after.
+    /// </summary>
+    public MirrorRead Read(long? since = null, int last = 50)
+    {
+        lock (_gate)
+        {
+            var total = _dropped + _lines.Count;
+            long start;
+            var truncated = false;
+            if (since is { } from)
+            {
+                start = Math.Clamp(from, 0, total);
+                if (start < _dropped)
+                {
+                    truncated = true; // some of what was asked for has been dropped
+                    start = _dropped;
+                }
+            }
+            else
+            {
+                start = Math.Max(_dropped, total - Math.Max(0, last));
+            }
+            var lines = _lines.Skip((int)(start - _dropped)).ToList();
+            var partial = _line.ToString().TrimEnd();
+            return new MirrorRead(lines, partial.Length > 0 ? partial : null, total, truncated);
+        }
     }
 
     /// <summary>Every line so far, oldest first, including the line still being written.</summary>
@@ -173,6 +211,12 @@ public sealed class OutputMirror(int maxLines = 10_000)
         return results;
     }
 }
+
+/// <summary>
+/// Finished lines, the line still being written (null if none), the cursor to read from next time,
+/// and whether lines that were asked for had already been dropped (the mirror keeps the last MaxLines).
+/// </summary>
+public sealed record MirrorRead(IReadOnlyList<string> Lines, string? Partial, long Next, bool Truncated);
 
 /// <summary>One line that matched, and how many times that exact line appeared.</summary>
 public sealed record FindMatch(string Line, int Count);

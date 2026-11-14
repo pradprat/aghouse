@@ -30,21 +30,7 @@ public partial class SettingsWindow : Window
         Owner = owner;
         _controller = controller;
 
-        var s = controller.Settings;
-        DefaultShell.ItemsSource = controller.Profiles.All;
-        DefaultShell.SelectedItem = controller.Profiles.Default;
-        CtrlDSplits.IsChecked = s.CtrlDSplits;
-        RestoreSession.IsChecked = s.RestoreSession;
-        ThemeChoice.SelectedItem = ThemeChoice.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == s.Theme) ?? ThemeChoice.Items[0];
-        var fonts = WorkspaceController.MonospaceFonts().ToList();
-        if (!fonts.Contains(s.FontFamily, StringComparer.OrdinalIgnoreCase)) fonts.Insert(0, s.FontFamily);
-        FontChoice.ItemsSource = fonts;
-        FontChoice.SelectedItem = fonts.First(f => string.Equals(f, s.FontFamily, StringComparison.OrdinalIgnoreCase));
-        var sizes = Sizes.Contains(s.FontSize) ? Sizes : [.. Sizes.Append(s.FontSize).Order()];
-        SizeChoice.ItemsSource = sizes;
-        SizeChoice.SelectedItem = s.FontSize;
-        Toasts.IsChecked = s.Toasts;
-        FlashTaskbar.IsChecked = s.FlashTaskbar;
+        LoadControls();
         VersionLabel.Text = VersionText();
 
         if (controller.SettingsProblem is { } problem)
@@ -62,6 +48,40 @@ public partial class SettingsWindow : Window
         RefreshClaude();
         Nav.SelectedIndex = (int)page;
         _loading = false;
+
+        // A script may change settings while this is open (aghouse settings set): show what's in effect.
+        controller.SettingsChanged += OnSettingsChanged;
+        Closed += (_, _) => controller.SettingsChanged -= OnSettingsChanged;
+    }
+
+    private bool _applying;
+
+    private void OnSettingsChanged()
+    {
+        if (_applying) return; // our own change: the controls already show it
+        _loading = true;
+        try { LoadControls(); }
+        finally { _loading = false; }
+    }
+
+    /// <summary>Puts the current settings into the controls.</summary>
+    private void LoadControls()
+    {
+        var s = _controller.Settings;
+        DefaultShell.ItemsSource = _controller.Profiles.All;
+        DefaultShell.SelectedItem = _controller.Profiles.Default;
+        CtrlDSplits.IsChecked = s.CtrlDSplits;
+        RestoreSession.IsChecked = s.RestoreSession;
+        ThemeChoice.SelectedItem = ThemeChoice.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == s.Theme) ?? ThemeChoice.Items[0];
+        var fonts = WorkspaceController.MonospaceFonts().ToList();
+        if (!fonts.Contains(s.FontFamily, StringComparer.OrdinalIgnoreCase)) fonts.Insert(0, s.FontFamily);
+        FontChoice.ItemsSource = fonts;
+        FontChoice.SelectedItem = fonts.First(f => string.Equals(f, s.FontFamily, StringComparison.OrdinalIgnoreCase));
+        var sizes = Sizes.Contains(s.FontSize) ? Sizes : [.. Sizes.Append(s.FontSize).Order()];
+        SizeChoice.ItemsSource = sizes;
+        SizeChoice.SelectedItem = s.FontSize;
+        Toasts.IsChecked = s.Toasts;
+        FlashTaskbar.IsChecked = s.FlashTaskbar;
     }
 
     public void ShowPage(SettingsPage page) => Nav.SelectedIndex = (int)page;
@@ -95,7 +115,9 @@ public partial class SettingsWindow : Window
         s.Toasts = Toasts.IsChecked == true;
         s.FlashTaskbar = FlashTaskbar.IsChecked == true;
 
-        _controller.ApplySettings(s);
+        _applying = true;
+        try { _controller.ApplySettings(s); }
+        finally { _applying = false; }
         if (!AppStorage.SaveSettings(_controller.Settings))
         {
             ProblemBar.Visibility = Visibility.Visible;

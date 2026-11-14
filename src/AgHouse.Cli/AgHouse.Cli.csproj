@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AgHouse.Core\AgHouse.Core.csproj" />
+    <InternalsVisibleTo Include="AgHouse.Tests" />
   </ItemGroup>
 
 </Project>

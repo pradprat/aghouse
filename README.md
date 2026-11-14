@@ -92,16 +92,55 @@ aghouse new-split [right|down|left|up] [--pane ID]
 aghouse new-tab [--pane ID] [--profile ID] [--cwd DIR]
 aghouse focus-pane <id> | close-pane [id]      # also select-tab / close-tab
 aghouse zoom-pane [id]                          # fill the workspace, or show all again
+aghouse rename-pane "build box" | --clear       # also rename-tab
+aghouse restart-pane [id] [--profile cmd] [--cwd DIR]   # a fresh shell in its place; prints the new pane id
+aghouse profiles                                # shells you can open (ids for --profile)
 aghouse waiting                                 # panes that need you, then handled requests (JSON)
-aghouse send-text "npm test" --enter [--pane ID]
 aghouse notify --title "Build" --body "Done"
+
+# Shell input and output
+aghouse send-text "npm test" --enter [--pane ID] [--wait-for "passing|failing" --timeout 300]
+aghouse send-keys ctrl+c                        # or: up enter, esc, tab, shift+tab, f5, alt+x, y ...
+aghouse read-pane [--lines 50] [--since CURSOR] [--json]
+aghouse wait-for "passing|failing" [--timeout 30] [--since CURSOR]   # exit 3 on timeout
 
 # The workspace's sidebar row (--workspace W to target another)
 aghouse set-status tests "Running tests"       # a chip; set the same key again to change it
 aghouse clear-status tests
 aghouse set-progress 0.4 --label Tests          # or 40%, or clear
 aghouse log "Lint found 3 warnings" --level warn
+
+# Settings (apply at once, written to settings.json)
+aghouse settings                                # every key, its value and what it takes
+aghouse settings get theme | set theme light | reset theme | path
+
+# The rest of the app
+aghouse actions                                 # every palette/shortcut action
+aghouse run split-right [--pane ID]             # do one as if its shortcut was pressed
+aghouse activate                                # bring the window to the front
+aghouse quit [--force]                          # asks about running programs unless --force
+aghouse help <command> | commands --json        # help for one command | all of them, for agents
 ```
+
+Exit codes: 0 ok, 1 error, 2 aghouse isn't running, 3 timed out (`wait-for`, `send-text --wait-for`).
+
+### Driving a pane from an agent
+
+`read-pane` gives back what a pane printed as plain text (colours and cursor moves stripped, the last 10,000 lines). To run a command and wait for its result, give `send-text` a `--wait-for` pattern. It watches only what comes after the text went in, ignores the shell's echo of the command, and prints the line that matched:
+
+```powershell
+$p = (aghouse new-split right | ConvertFrom-Json).paneId          # a shell of the agent's own
+aghouse send-text "npm test" --enter --pane $p --wait-for "passing|failing" --timeout 300
+aghouse read-pane --pane $p --lines 40                            # the rest of what it printed
+aghouse send-keys ctrl+c --pane $p                                # stop something
+```
+
+For finer control, `send-text --json` and `read-pane --json` return a cursor (`cursor`, `next`) to pass to `read-pane --since` or `wait-for --since`. Full-screen programs that redraw (vim, Claude Code) read back as fragments. `aghouse commands --json` describes every command, so an agent can find out what it can do in one call.
+
+### Teaching agents about aghouse
+
+- **Claude Code** learns it by itself once it's connected (below): when a session starts in a pane, aghouse's `SessionStart` hook tells Claude which pane and workspace it's in, the commands it will need most, and a few rules (never type into its own pane, leave panes it didn't open alone). Outside aghouse the hook says nothing.
+- **Other agents** (Codex, Gemini CLI, Cursor and others read `AGENTS.md`): `aghouse agent-guide >> AGENTS.md` adds the same guidance as Markdown. Agents only use it when `AGHOUSE_PANE_ID` is set, so it does no harm outside aghouse.
 
 Inside a pane, `--pane` defaults to that pane (`$env:AGHOUSE_PANE_ID`). Every tab is its own terminal with its own pane id, so `--pane` and `AGHOUSE_PANE_ID` work the same for tabs. `aghouse list` shows each terminal with its `slot` (the pane it's a tab of), `tab` position and whether it's `visible`, plus each workspace's `pullRequest`, `status` chips, `progress` and `lastLog`.
 
@@ -109,7 +148,7 @@ Listening ports are found by looking at the processes under each pane's shell, e
 
 ## Claude Code integration
 
-Open Settings › Integrations and click **Connect Claude Code**, or run `aghouse hooks install claude` in any pane. Either one says exactly what it will add to `~/.claude/settings.json` and asks first. It only appends aghouse's entry to each hook list, keeps your other settings and hooks, and copies the file to `settings.json.aghouse-backup` before writing. It never touches a file that isn't valid JSON. `aghouse hooks status claude` tells you whether it's connected, and `aghouse hooks print claude` prints the snippet if you'd rather merge it by hand. Until Claude Code is connected or the first notification arrives, the foot of the sidebar offers to connect it. It routes Claude Code's `Notification`, `Stop`, `UserPromptSubmit` and `PostToolUse` events to `aghouse claude-hook`. While Claude is busy, its workspace row shows a **Working** chip. When Claude asks for permission or finishes, the chip goes and the pane that runs it gets marked "Needs you". The hook does nothing outside aghouse.
+Open Settings › Integrations and click **Connect Claude Code**, or run `aghouse hooks install claude` in any pane. Either one says exactly what it will add to `~/.claude/settings.json` and asks first. It only appends aghouse's entry to each hook list, keeps your other settings and hooks, and copies the file to `settings.json.aghouse-backup` before writing. It never touches a file that isn't valid JSON. `aghouse hooks status claude` tells you whether it's connected, and `aghouse hooks print claude` prints the snippet if you'd rather merge it by hand. Until Claude Code is connected or the first notification arrives, the foot of the sidebar offers to connect it. It routes Claude Code's `Notification`, `Stop`, `UserPromptSubmit`, `PostToolUse` and `SessionStart` events to `aghouse claude-hook`. While Claude is busy, its workspace row shows a **Working** chip. When Claude asks for permission or finishes, the chip goes and the pane that runs it gets marked "Needs you". At `SessionStart`, Claude is told it's in aghouse and how to use the CLI (see [Teaching agents about aghouse](#teaching-agents-about-aghouse)). The hook does nothing outside aghouse. If you connected before `SessionStart` was added, Settings › Integrations shows "Partly connected"; click **Connect Claude Code** (or run `aghouse hooks install claude`) to add it.
 
 Other tools can raise attention by printing an escape code:
 
@@ -123,7 +162,7 @@ PowerShell profiles dot-source `ShellIntegration/aghouse.ps1` after your `$PROFI
 
 ## Files
 
-- Settings: `%APPDATA%\aghouse\settings.json`. The Settings window (the gear, or Ctrl+,) edits it, and every change applies at once. It holds the font, font size, default profile, theme (`system`/`dark`/`light`), `restoreSession`, `toasts`, `flashTaskbar` and `ctrlDSplits`. The window only writes those keys, so anything else you put in the file stays. Ctrl+D splits right by default, so it no longer reaches the terminal, where it means end of input or exit (bash, WSL, PowerShell, Claude Code). Turn it off in Settings (`"ctrlDSplits": false`) to give it back; Alt+Shift+= still splits right. If the file has a syntax error, aghouse leaves it as it is, runs on default settings, shows the line with the error at the foot of the sidebar, and keeps Settings read-only until the file is fixed and aghouse restarts.
+- Settings: `%APPDATA%\aghouse\settings.json`. The Settings window (the gear, or Ctrl+,) and `aghouse settings set` edit it, and every change applies at once. It holds the font, font size, default profile, theme (`system`/`dark`/`light`), `restoreSession`, `toasts`, `flashTaskbar` and `ctrlDSplits`. The window only writes those keys, so anything else you put in the file stays. Ctrl+D splits right by default, so it no longer reaches the terminal, where it means end of input or exit (bash, WSL, PowerShell, Claude Code). Turn it off in Settings (`"ctrlDSplits": false`) to give it back; Alt+Shift+= still splits right. If the file has a syntax error, aghouse leaves it as it is, runs on default settings, shows the line with the error at the foot of the sidebar, and keeps Settings read-only until the file is fixed and aghouse restarts.
 - Session: `%APPDATA%\aghouse\session.json`. Workspaces, split layout, each pane's cwd, the window's position and size, and the sidebar width are restored on launch. Scrollback is not restored. With no session.json (the very first launch), aghouse opens on a welcome screen instead of a terminal.
 - Diagnostics: `%LOCALAPPDATA%\aghouse\aghouse.log`
 

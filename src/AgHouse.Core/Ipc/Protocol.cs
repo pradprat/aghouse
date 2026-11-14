@@ -47,6 +47,17 @@ public static class Methods
     public const string CloseWorkspace = "close-workspace";
     public const string ZoomPane = "zoom-pane";
     public const string Waiting = "waiting";
+    public const string ReadPane = "read-pane";
+    public const string SendKeys = "send-keys";
+    public const string RenamePane = "rename-pane";
+    public const string RestartPane = "restart-pane";
+    public const string GetSettings = "get-settings";
+    public const string SetSetting = "set-setting";
+    public const string ResetSetting = "reset-setting";
+    public const string Profiles = "profiles";
+    public const string Actions = "actions";
+    public const string RunAction = "run-action";
+    public const string Quit = "quit";
 }
 
 public sealed class RpcRequest
