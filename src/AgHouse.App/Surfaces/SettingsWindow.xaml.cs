@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Navigation;
 using AgHouse.App.Persistence;
 using AgHouse.App.Terminal;
+using AgHouse.App.Updates;
 using AgHouse.App.Workspaces;
 using AgHouse.Core;
 
@@ -39,7 +40,7 @@ public partial class SettingsWindow : Window
             ProblemBar.Visibility = Visibility.Visible;
             ProblemTitle.Text = problem.Summary;
             ProblemDetail.Text = $"{problem.Detail}\naghouse is running on default settings. Fix the file and restart aghouse to change settings here.";
-            foreach (var control in new Control[] { DefaultShell, CtrlDSplits, RestoreSession, WarnMultilinePaste, ThemeChoice, FontChoice, SizeChoice, Toasts, FlashTaskbar })
+            foreach (var control in new Control[] { DefaultShell, CtrlDSplits, RestoreSession, WarnMultilinePaste, ThemeChoice, FontChoice, SizeChoice, Toasts, FlashTaskbar, UpdatesChoice })
             {
                 control.IsEnabled = false;
             }
@@ -51,13 +52,20 @@ public partial class SettingsWindow : Window
 
         // A script may change settings while this is open (aghouse settings set): show what's in effect.
         controller.SettingsChanged += OnSettingsChanged;
-        Closed += (_, _) => controller.SettingsChanged -= OnSettingsChanged;
+        controller.Updates.Changed += RefreshUpdates;
+        Closed += (_, _) =>
+        {
+            controller.SettingsChanged -= OnSettingsChanged;
+            controller.Updates.Changed -= RefreshUpdates;
+        };
+        RefreshUpdates();
     }
 
     private bool _applying;
 
     private void OnSettingsChanged()
     {
+        RefreshUpdates(); // its words depend on the updates setting
         if (_applying) return; // our own change: the controls already show it
         _loading = true;
         try { LoadControls(); }
@@ -83,6 +91,7 @@ public partial class SettingsWindow : Window
         Toasts.IsChecked = s.Toasts;
         FlashTaskbar.IsChecked = s.FlashTaskbar;
         WarnMultilinePaste.IsChecked = s.WarnMultilinePaste;
+        UpdatesChoice.SelectedItem = UpdatesChoice.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == s.Updates) ?? UpdatesChoice.Items[0];
     }
 
     public void ShowPage(SettingsPage page) => Nav.SelectedIndex = (int)page;
@@ -116,6 +125,7 @@ public partial class SettingsWindow : Window
         s.Toasts = Toasts.IsChecked == true;
         s.FlashTaskbar = FlashTaskbar.IsChecked == true;
         s.WarnMultilinePaste = WarnMultilinePaste.IsChecked == true;
+        if (UpdatesChoice.SelectedItem is ComboBoxItem { Tag: string updates }) s.Updates = updates;
 
         _applying = true;
         try { _controller.ApplySettings(s); }
@@ -198,6 +208,64 @@ public partial class SettingsWindow : Window
         var version = plus > 0 ? info[..plus] : info;
         var commit = plus > 0 ? info[(plus + 1)..] : null;
         return commit is { Length: >= 7 } ? $"Version {version} · {commit[..7]}" : $"Version {version}";
+    }
+
+    /// <summary>The Updates row: what the last check found and the one button that does the next thing.</summary>
+    private void RefreshUpdates()
+    {
+        var u = _controller.Updates;
+        var latest = u.Latest;
+        var name = latest is null ? "" : $"aghouse {latest.Version}";
+        var canInstall = u.IsInstalled && latest is { CanInstall: true };
+        var auto = _controller.Settings.Updates == "auto";
+
+        (UpdateTitle.Text, UpdateStatus.Text) = u.State switch
+        {
+            UpdateState.Checking => ("Checking for updates…", "Asking GitHub for the newest release."),
+            UpdateState.UpToDate => ("aghouse is up to date",
+                $"Version {u.Current} is the newest. Checked at {u.LastChecked:t}."),
+            UpdateState.Downloading => ($"Downloading {name}…", $"{u.Progress}%"),
+            UpdateState.Ready => ($"{name} is ready",
+                auto ? "Downloaded and checked. It installs when you quit aghouse, or restart to update now."
+                     : "Downloaded and checked. Restart to install it."),
+            UpdateState.Available when canInstall => ($"{name} is available",
+                auto ? "It will download in the background." : "Download and restart installs it."),
+            UpdateState.Available => ($"{name} is available",
+                "This copy of aghouse wasn't installed with the installer, so it can't update itself. Get it from the release page."),
+            UpdateState.Failed => (latest is null ? "Couldn't check for updates" : $"Couldn't download {name}", u.Error ?? ""),
+            _ => ("Updates", _controller.Settings.Updates == "off"
+                ? "aghouse doesn't check by itself. Check now, or see the Releases page."
+                : "aghouse checks GitHub for a new version every few hours."),
+        };
+
+        UpdateNow.Visibility = Visibility.Collapsed;
+        if (latest is not null && u.State is UpdateState.Ready or UpdateState.Available or UpdateState.Failed)
+        {
+            UpdateNow.Content = u.State == UpdateState.Ready ? "Restart to update"
+                : canInstall ? "Download and restart"
+                : "Open the release page";
+            UpdateNow.Visibility = Visibility.Visible;
+        }
+        CheckUpdates.IsEnabled = u.State is not (UpdateState.Checking or UpdateState.Downloading or UpdateState.Ready);
+
+        WhatsNew.Visibility = latest is null ? Visibility.Collapsed : Visibility.Visible;
+        if (latest is not null) WhatsNewLink.NavigateUri = new Uri(latest.PageUrl);
+    }
+
+    private void CheckUpdates_Click(object sender, RoutedEventArgs e) => _ = _controller.Updates.CheckAsync();
+
+    private void UpdateNow_Click(object sender, RoutedEventArgs e)
+    {
+        var u = _controller.Updates;
+        if (u.IsInstalled && u.Latest is { CanInstall: true })
+        {
+            (Owner as MainWindow)?.RestartToUpdate();
+        }
+        else if (u.Latest is { } latest)
+        {
+            try { Process.Start(new ProcessStartInfo(latest.PageUrl) { UseShellExecute = true }); }
+            catch (System.ComponentModel.Win32Exception) { /* no default browser */ }
+        }
     }
 
     private void Link_RequestNavigate(object sender, RequestNavigateEventArgs e)

@@ -43,6 +43,8 @@ public static class ActionNames
         new("about", "Open Settings at About"),
         new("edit-settings-file", "Open settings.json in the default editor"),
         new("open-logs", "Open the logs folder"),
+        new("check-for-updates", "Ask GitHub for a newer aghouse and show the answer in Settings at About"),
+        new("restart-to-update", "Install the new version now and restart (downloads it first; asks if something is running)"),
     ];
 
     public static ActionInfo? Find(string? name) =>

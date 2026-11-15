@@ -11,13 +11,14 @@ using AgHouse.App.Notifications;
 using AgHouse.App.Persistence;
 using AgHouse.App.Surfaces;
 using AgHouse.App.Terminal;
+using AgHouse.App.Updates;
 using AgHouse.Core.Ipc;
 using AgHouse.Core.Layout;
 using AgHouse.Core.Terminal;
 
 namespace AgHouse.App.Workspaces;
 
-public enum FooterState { Hint, Setup, Waiting, Problem }
+public enum FooterState { Hint, Setup, Update, Waiting, Problem }
 
 /// <summary>
 /// Owns all workspaces and panes. Every mutation (UI, keyboard, pipe API) goes through here,
@@ -93,8 +94,16 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         _window.Activated += (_, _) => ClearFocusedUnread();
         Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
         _toasts.Activated += (ws, pane) => _window.Dispatcher.BeginInvoke(() => OnToastActivated(ws, pane));
+        Updates = new UpdateService(() => _settings.Updates);
+        Updates.Changed += UpdateFooter;
         UpdateFooter();
     }
+
+    /// <summary>New versions from GitHub Releases (Settings › About, the footer, <c>aghouse run restart-to-update</c>).</summary>
+    public UpdateService Updates { get; }
+
+    /// <summary>The window is closing for good: the quit wasn't called off.</summary>
+    public bool IsShuttingDown => _shuttingDown;
 
     public ObservableCollection<Workspace> Workspaces { get; } = [];
 
@@ -102,8 +111,8 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
 
     /// <summary>
     /// The footer line under the workspace list. In priority order: a settings.json problem
-    /// (until restart), how many panes are waiting, how to set up agent hooks (until the first
-    /// notification ever), or the Ctrl+Shift+U shortcut hint.
+    /// (until restart), how many panes are waiting, a new aghouse version, how to set up agent
+    /// hooks (until the first notification ever), or the Ctrl+Shift+U shortcut hint.
     /// Wording: "waiting" counts panes, "Needs you" is a pane's state; never "unread".
     /// </summary>
     public FooterState FooterKind { get => _footerKind; private set => Set(ref _footerKind, value); }
@@ -131,6 +140,12 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             FooterText = $"{waiting} waiting · Ctrl+Shift+U";
             FooterDetail = "Show what's waiting (Ctrl+Shift+I). Ctrl+Shift+U jumps to the pane that asked most recently.";
         }
+        else if (UpdateFooterText() is var (text, detail))
+        {
+            FooterKind = FooterState.Update;
+            FooterText = text;
+            FooterDetail = detail;
+        }
         else if (!_notifiedOnce && !_hooksConnected)
         {
             // First run: nothing on screen says agents can ask for you, so say how, until one does.
@@ -147,6 +162,26 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             FooterText = "Ctrl+Shift+U  jump to a waiting pane";
             FooterDetail = "Show what's waiting and what you already handled (Ctrl+Shift+I)";
         }
+    }
+
+    /// <summary>
+    /// A new version, once there's something to do or know: it's downloaded, or it's out and needs
+    /// a click. A background download in progress stays quiet.
+    /// </summary>
+    private (string Text, string Detail)? UpdateFooterText()
+    {
+        if (Updates?.Latest is not { } latest) return null;
+        var name = $"aghouse {latest.Version}";
+        return Updates.State switch
+        {
+            UpdateState.Ready => ($"{name} installs when you quit",
+                $"{name} is downloaded and checked. It installs when aghouse quits, or open About to restart and update now."),
+            UpdateState.Available or UpdateState.Failed when Updates.IsInstalled && latest.CanInstall => ($"{name} is available",
+                "Open About to download it and restart."),
+            UpdateState.Available or UpdateState.Failed => ($"{name} is available",
+                "This copy of aghouse wasn't installed with the installer, so it can't update itself. Open About for the Releases page."),
+            _ => null,
+        };
     }
 
     private bool _hooksConnected = AgHouse.Core.ClaudeHooks.Inspect().State == AgHouse.Core.HookState.Connected;
@@ -758,6 +793,10 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         _settings.FlashTaskbar = changed.FlashTaskbar;
         _settings.Theme = changed.Theme;
         _settings.CtrlDSplits = changed.CtrlDSplits;
+        _settings.WarnMultilinePaste = changed.WarnMultilinePaste;
+        var updatesChanged = changed.Updates != _settings.Updates;
+        _settings.Updates = changed.Updates;
+        if (updatesChanged) Updates.SettingChanged();
 
         _shortcuts.CtrlDSplits = _settings.CtrlDSplits;
         Application.Current.Resources["SplitRightGesture"] = _settings.CtrlDSplits ? "Ctrl+D" : "Alt+Shift+=";
@@ -1193,6 +1232,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         _saveTimer.Stop();
         _portTimer.Stop();
         _prTimer.Stop();
+        Updates.Dispose();
         SaveSession();
         _shortcuts.Dispose();
         var panes = Workspaces.SelectMany(w => w.Panes.Values).ToList();

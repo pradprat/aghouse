@@ -23,6 +23,11 @@ public sealed class AppSettings
     /// <summary>Ask before a paste whose line breaks would run commands (the shell didn't turn on bracketed paste).</summary>
     public bool WarnMultilinePaste { get; set; } = true;
     /// <summary>
+    /// "auto": download a new version in the background and install it when aghouse quits.
+    /// "notify": only say a new version is out. "off": never ask GitHub unless told to.
+    /// </summary>
+    public string Updates { get; set; } = "auto";
+    /// <summary>
     /// Let a pane type (send-text, send-keys) into another pane that runs an agent. Off by default,
     /// so an agent can't answer another agent's permission prompt. Deliberately not in SettingKeys:
     /// only settings.json changes it, never the CLI that agents use.

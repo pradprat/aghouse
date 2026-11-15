@@ -37,7 +37,11 @@ Only the latest release gets security fixes.
 ## Verifying a download
 
 Releases aren't code-signed yet. Each release lists SHA-256 checksums in
-`SHA256SUMS.txt`. Check a download with:
+`SHA256SUMS.txt`. aghouse's own updater (an installed copy, Settings › About) only
+downloads the installer attached to the newest full release of this repository, and
+runs it only if it matches the checksum in that release's `SHA256SUMS.txt`. Both
+files come from the same release, so this catches a broken or swapped download, not
+a compromised release. Check a manual download with:
 
 ```powershell
 Get-FileHash .\aghouse-<version>-setup-x64.exe -Algorithm SHA256

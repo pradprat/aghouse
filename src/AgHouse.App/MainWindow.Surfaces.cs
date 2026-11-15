@@ -32,7 +32,42 @@ public partial class MainWindow
             case "about": OpenSettings(SettingsPage.About); break;
             case "edit-settings-file": OpenSettingsFile(); break;
             case "open-logs": OpenLogsFolder(); break;
+            case "check-for-updates": CheckForUpdates(); break;
+            // Answer the CLI first: the pipe goes away with the window (as for 'aghouse quit').
+            case "restart-to-update": _ = Task.Delay(150).ContinueWith(_ => Dispatcher.BeginInvoke(RestartToUpdate)); break;
         }
+    }
+
+    // ───────────────────────────── Updates ─────────────────────────────
+
+    /// <summary>Settings › About shows the answer as it comes in.</summary>
+    public void CheckForUpdates()
+    {
+        OpenSettings(SettingsPage.About);
+        _ = Controller.Updates.CheckAsync();
+    }
+
+    /// <summary>
+    /// Downloads the new version if it isn't yet, then quits as the window's ✕ would (asking about
+    /// running programs) and lets the installer start the new aghouse. A copy that wasn't installed
+    /// can't update itself, so that opens About, which links to the release.
+    /// </summary>
+    public async void RestartToUpdate()
+    {
+        var updates = Controller.Updates;
+        if (!updates.IsInstalled || updates.Latest is not { CanInstall: true })
+        {
+            CheckForUpdates();
+            return;
+        }
+        if (updates.State != Updates.UpdateState.Ready)
+        {
+            OpenSettings(SettingsPage.About); // shows the download's progress
+            if (!await updates.DownloadAsync() || Controller.IsShuttingDown) return;
+        }
+        updates.InstallOnExit(relaunch: true);
+        Controller.RequestQuit(force: false);
+        if (!Controller.IsShuttingDown) updates.CancelInstallOnExit(); // kept a running program
     }
 
     private void BackToTerminal() => Controller.Selected?.ActivePane?.FocusTerminal();
@@ -80,6 +115,7 @@ public partial class MainWindow
         {
             case Workspaces.FooterState.Problem: OpenSettingsFile(); break;
             case Workspaces.FooterState.Setup: OpenSettings(SettingsPage.Integrations); break;
+            case Workspaces.FooterState.Update: OpenSettings(SettingsPage.About); break;
             default: ShowWaitingList(); break;
         }
     }
@@ -196,6 +232,11 @@ public partial class MainWindow
         Action("Edit settings.json", null, OpenSettingsFile, "json config");
         Action("Open the logs folder", null, OpenLogsFolder, "diagnostics log");
         Action("About aghouse", null, () => OpenSettings(SettingsPage.About), "version");
+        Action("Check for updates", null, CheckForUpdates, "update version upgrade new release");
+        if (Controller.Updates is { IsInstalled: true, Latest: { CanInstall: true } latest })
+        {
+            Action($"Restart to update to aghouse {latest.Version}", null, RestartToUpdate, "update version upgrade install");
+        }
         return items;
     }
 

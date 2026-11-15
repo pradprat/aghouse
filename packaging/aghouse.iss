@@ -64,8 +64,16 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+; aghouse's "Restart to update" runs this installer silently with /relaunch=1: start the new version
+; afterwards, as the signed-in user even when an all-users install ran elevated.
+Filename: "{app}\{#AppExe}"; Flags: nowait runasoriginaluser; Check: ShouldRelaunch
 
 [Code]
+function ShouldRelaunch: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:relaunch|0}') = '1');
+end;
+
 // PATH lives under HKCU for a per-user install and HKLM for an all-users one.
 function EnvRoot: Integer;
 begin

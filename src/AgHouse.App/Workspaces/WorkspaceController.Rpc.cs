@@ -483,7 +483,7 @@ public sealed partial class WorkspaceController
         // Something the user is meant to see or type into opens in front, not behind another app.
         if (action is AppAction.CommandPalette or AppAction.WaitingList or AppAction.Settings or AppAction.RenameWorkspace
                 or AppAction.Find or AppAction.ClosePane or AppAction.CloseWorkspace
-            || name is "connect-claude-code" or "about")
+            || name is "connect-claude-code" or "about" or "check-for-updates" or "restart-to-update")
         {
             BringToFront();
         }

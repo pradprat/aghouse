@@ -203,7 +203,8 @@ internal static class Program
             "Read or change settings.json; changes apply at once", SettingsAsync)
             {
                 Example = "aghouse settings set theme light",
-                Details = "Keys: defaultProfile, fontFamily, fontSize, theme, restoreSession, toasts, flashTaskbar, ctrlDSplits " +
+                Details = "Keys: defaultProfile, fontFamily, fontSize, theme, restoreSession, toasts, flashTaskbar, ctrlDSplits, " +
+                          "warnMultilinePaste, updates " +
                           "(font-size and other spellings work). 'settings get KEY' prints just the value.",
             },
 
@@ -224,6 +225,13 @@ internal static class Program
 
         new("quit", "App", "quit [--force]", "Close aghouse; asks first if programs are running, unless --force",
             c => CallAsync(Methods.Quit, new() { ["force"] = c.Has("force") ? "true" : null })),
+
+        new("update", "App", "update [--json]", "Is there a newer aghouse? Asks GitHub Releases (aghouse needn't be running)", UpdateAsync)
+            {
+                Example = "aghouse update",
+                Details = "Only checks. An installed aghouse installs new versions itself when it quits (setting 'updates': auto), " +
+                          "or now with 'aghouse run restart-to-update', which asks first if programs are running. Exit 1 if GitHub can't be reached.",
+            },
 
         new("ping", "App", "ping", "Is aghouse running? Prints its version",
             _ => CallAsync(Methods.Ping, new(), pretty: true)),
@@ -821,6 +829,37 @@ internal static class Program
     /// <summary>Options that never take a value, so "--enter hello" keeps "hello" as an argument.</summary>
     private static bool IsFlag(string key) =>
         key is "enter" or "json" or "force" or "clear" or "yes" or "ignore-case" or "help";
+
+    private static async Task<int> UpdateAsync(Ctx c)
+    {
+        var current = AgHouse.Core.Updates.ReleaseFeed.CurrentVersion(typeof(Program).Assembly);
+        AgHouse.Core.Updates.ReleaseInfo? latest;
+        try
+        {
+            using var http = AgHouse.Core.Updates.ReleaseFeed.CreateClient(current);
+            latest = await AgHouse.Core.Updates.ReleaseFeed.FetchLatestAsync(http, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return Fail($"Couldn't reach GitHub: {ex.Message}");
+        }
+        var newer = latest is not null && latest.Version > current;
+        if (c.Has("json"))
+        {
+            Console.WriteLine(new JsonObject
+            {
+                ["current"] = current.ToString(),
+                ["latest"] = latest?.Version.ToString(),
+                ["newer"] = newer,
+                ["page"] = latest?.PageUrl ?? AgHouse.Core.Updates.ReleaseFeed.ReleasesPage,
+            }.ToJsonString(Pretty));
+            return ExitOk;
+        }
+        return Print(newer
+            ? $"aghouse {latest!.Version} is out (this is {current}): {latest.PageUrl}\n" +
+              "In aghouse: Settings › About, or 'aghouse run restart-to-update'."
+            : $"aghouse {current} is up to date.");
+    }
 
     private static int Print(string text)
     {

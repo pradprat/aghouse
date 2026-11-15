@@ -11,6 +11,8 @@ public partial class App : Application
 {
     private Mutex? _singleInstance;
     private PipeServer? _pipe;
+    private Updates.UpdateService? _updates;
+    private bool _sessionEnding;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -42,6 +44,8 @@ public partial class App : Application
 
         window.Show();
         _ = profiles.DetectWslAsync();
+        _updates = window.Controller.Updates;
+        _updates.Start();
     }
 
     private static void ActivateRunningInstance()
@@ -64,6 +68,7 @@ public partial class App : Application
     protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
     {
         base.OnSessionEnding(e);
+        _sessionEnding = true;
         (MainWindow as MainWindow)?.Controller.Dispose();
     }
 
@@ -71,6 +76,9 @@ public partial class App : Application
     {
         _pipe?.Dispose();
         _singleInstance?.Dispose();
+        // Last: the installer replaces these files, and with /relaunch=1 starts a new aghouse that
+        // needs the pipe and the single-instance mutex to be free.
+        _updates?.RunPendingInstall(_sessionEnding);
         base.OnExit(e);
     }
 }

@@ -311,9 +311,10 @@ One Fluent dialog (`ConfirmDialog`) in WinUI ContentDialog's shape, shown only b
 - Other notices (Connect Claude Code, a settings.json that won't parse, a shell that failed to start) stay the stock MessageBox.
 
 ### Sidebar footer status
-One Caption line beside the settings gear. It is a ghost button (transparent, Fluent hover fill) that opens what its state is about. It shows the most important of four states:
+One Caption line beside the settings gear. It is a ghost button (transparent, Fluent hover fill) that opens what its state is about. It shows the most important of five states:
 - **Settings problem:** settings.json couldn't be parsed. A caution glyph (`E7BA`) and "settings.json has an error on line N" in Primary Text. The tooltip has the parser's message and says the app is running on defaults until the file is fixed and aghouse restarts. The broken file is never overwritten. A click opens the file.
 - **Waiting:** "2 waiting · Ctrl+Shift+U" in Primary Text, counting panes that need you across all workspaces. A click opens the waiting list.
+- **Update:** "aghouse 0.1.3 installs when you quit" once a new version is downloaded and verified, or "aghouse 0.1.3 is available" when it needs a click (updates set to notify, or a copy that wasn't installed). Secondary Text, no accent, no glyph. A background download in progress says nothing. A click opens Settings › About.
 - **Setup** (until Claude Code is connected or the first notification arrives): "Connect Claude Code so it can say when it needs you" in Secondary Text, allowed to wrap. A click opens Settings › Integrations. The first notification of any kind retires it for good (`notifiedOnce` in session.json).
 - **Idle:** "Ctrl+Shift+U  jump to a waiting pane" in Secondary Text. A click opens the waiting list, for its Earlier section.
 
@@ -345,7 +346,7 @@ A normal Fluent window with Mica and the system title bar, 780×600 and resizabl
 - **Pages:** a 14/600 page title, then rows. Each row has a 14px label with Meta-type help under it in Secondary Text, the stock control on the right, and a hairline Divider under it. No cards.
 - **Behaviour:** every change applies at once and is written to settings.json, keeping keys aghouse doesn't know. A broken settings.json shows a Fluent InfoBar (caution background and glyph, "Edit settings.json") and makes every control read-only.
 - **Integrations:** Claude Code's state in words ("Connected…", "Partly connected: Stop doesn't…", "Not connected…", "isn't valid JSON…"), and **Connect Claude Code**, which shows a stock MessageBox listing exactly what will be added and asks first (Yes / No, No by default).
-- **About:** the 48px mark, "aghouse", "Version 0.1.0 · 03d5770", the one-line description, neutral underlined links (GitHub, Releases), "aghouse doesn't check for updates…", MIT License, and buttons for the logs folder and settings.json.
+- **About:** the 48px mark, "aghouse", "Version 0.1.0 · 03d5770", the one-line description, an updates row (the last check's answer in words — "aghouse is up to date", "Downloading aghouse 0.1.3… 42%", "aghouse 0.1.3 is ready" — with a "What's new" link, **Check for updates**, and, when there is one, **Restart to update** / **Download and restart** / **Open the release page**; stock buttons, no accent), an **Install updates** row (Automatically / Ask me first / Don't check), neutral underlined links (GitHub, Releases), MIT License, and buttons for the logs folder and settings.json.
 
 ### Welcome screen (first launch only)
 Shown in the terminal area when there is no session.json, before any terminal exists, so it is ordinary WPF. It is a 520px column centred in the area: the 40px mark and "aghouse", then "Run coding agents side by side" (14/600) with one Secondary sentence, then **Open a terminal in Home** (default button) and **Choose a folder…**. Below a Divider comes Claude Code's state with **Connect Claude Code**, and below another, "Keys worth knowing": six shortcut rows with the keys in Caption, Secondary Text. It goes away for good when the first workspace opens.

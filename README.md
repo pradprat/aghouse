@@ -42,6 +42,8 @@ This writes three things to `artifacts/`. All of them bundle the .NET runtime, s
 - `aghouse-<version>-win-x64.zip`: a portable build. Unzip it anywhere and run `AgHouseApp.exe`. Keep the folder together, because the GUI needs `aghouse.exe`, `conpty.dll` and `ShellIntegration\` beside it.
 - `aghouse-<version>-setup-x64.exe`: the installer. By default it installs for the current user only, into `%LOCALAPPDATA%\Programs\aghouse`, with no admin prompt. It adds a Start Menu shortcut and can optionally put `aghouse` on `PATH` and add a desktop icon. Uninstalling removes the program and the PATH entry, but keeps `%APPDATA%\aghouse`.
 
+An installed aghouse updates itself from GitHub Releases: it checks every few hours, downloads the new installer in the background, verifies it against the release's `SHA256SUMS.txt`, and installs it when you quit (or right away with **Restart to update** in Settings › About). Set `"updates": "notify"` to only be told, or `"off"` to never check; `aghouse update` checks from the command line. The portable zip can't update itself and just says when a new version is out. A release must attach `aghouse-<version>-setup-x64.exe` and `SHA256SUMS.txt` (publish.ps1 makes both) for installed copies to pick it up.
+
 Pass `-NoInstaller` or `-NoZip` to skip either one. The version number comes from `Directory.Build.props`. The installer is not code-signed, so on other PCs Windows SmartScreen will show "Windows protected your PC". Click **More info → Run anyway**.
 
 ## Keyboard

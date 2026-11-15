@@ -55,7 +55,7 @@
                 </Button>
             </Grid>
 
-            <!-- Footer: settings problem > "N waiting" > shortcut hint (WorkspaceController.UpdateFooter). -->
+            <!-- Footer: settings problem > "N waiting" > new version > setup > shortcut hint (WorkspaceController.UpdateFooter). -->
             <Grid DockPanel.Dock="Bottom" Margin="0,8,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

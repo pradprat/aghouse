@@ -276,7 +276,38 @@
                         </DockPanel>
                         <TextBlock Style="{StaticResource Label}" Margin="0,0,0,12"
                                    Text="A Windows-native terminal workspace for running coding agents side by side." />
+                        <!-- Updates: what the last check found, and what to do about it. Neutral buttons: the accent stays for selection and "Needs you". -->
                         <Border Style="{StaticResource Row}" BorderThickness="0,1,0,1">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button x:Name="UpdateNow" Click="UpdateNow_Click" Margin="0,0,8,0" Visibility="Collapsed" />
+                                    <Button x:Name="CheckUpdates" Content="Check for updates" Click="CheckUpdates_Click" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock x:Name="UpdateTitle" Style="{StaticResource Label}" />
+                                    <TextBlock x:Name="UpdateStatus" Style="{StaticResource Help}" />
+                                    <TextBlock x:Name="WhatsNew" Style="{StaticResource Help}" Visibility="Collapsed">
+                                        <Hyperlink x:Name="WhatsNewLink" RequestNavigate="Link_RequestNavigate">What's new</Hyperlink>
+                                    </TextBlock>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                        <Border Style="{StaticResource Row}">
+                            <DockPanel>
+                                <ComboBox x:Name="UpdatesChoice" DockPanel.Dock="Right" MinWidth="200" VerticalAlignment="Center"
+                                          SelectionChanged="Changed" AutomationProperties.Name="Install updates">
+                                    <ComboBoxItem Tag="auto" Content="Automatically" />
+                                    <ComboBoxItem Tag="notify" Content="Ask me first" />
+                                    <ComboBoxItem Tag="off" Content="Don't check" />
+                                </ComboBox>
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Text="Install updates" Style="{StaticResource Label}" />
+                                    <TextBlock Style="{StaticResource Help}"
+                                               Text="aghouse asks GitHub for a new version every few hours. Automatically: it downloads in the background and installs when you quit aghouse, so nothing running is cut short." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                        <Border Style="{StaticResource Row}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource Label}">
                                     <Hyperlink NavigateUri="https://github.com/pradprat/aghouse" RequestNavigate="Link_RequestNavigate">Source code on GitHub</Hyperlink>
@@ -284,8 +315,6 @@
                                 <TextBlock Style="{StaticResource Label}" Margin="0,6,0,0">
                                     <Hyperlink NavigateUri="https://github.com/pradprat/aghouse/releases" RequestNavigate="Link_RequestNavigate">Releases</Hyperlink>
                                 </TextBlock>
-                                <TextBlock Style="{StaticResource Help}" Margin="0,2,0,0"
-                                           Text="aghouse doesn't check for updates. New versions are listed on the Releases page." />
                                 <TextBlock Style="{StaticResource Help}" Margin="0,8,0,0" Text="MIT License" />
                             </StackPanel>
                         </Border>

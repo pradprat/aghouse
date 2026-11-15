@@ -46,6 +46,9 @@ public static class SettingKeys
         new("flashTaskbar", SettingType.Bool, "Flash the taskbar button when a pane needs you and aghouse isn't in front.", true),
         new("ctrlDSplits", SettingType.Bool, "Ctrl+D splits right. Off gives Ctrl+D (end of input) back to the terminal.", true),
         new("warnMultilinePaste", SettingType.Bool, "Ask before a paste whose line breaks would run commands.", true),
+        new("updates", SettingType.Choice,
+            "New versions from GitHub Releases. auto: download in the background and install when aghouse quits. "
+            + "notify: only say one is out. off: never check by itself.", "auto", Choices: ["auto", "notify", "off"]),
     ];
 
     /// <summary>The key, whatever the spelling: fontSize, font-size, font_size and FONTSIZE all work. Null if unknown.</summary>
