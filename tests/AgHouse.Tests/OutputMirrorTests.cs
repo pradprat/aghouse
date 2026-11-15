@@ -37,6 +37,29 @@ public class OutputMirrorTests
     }
 
     [Fact]
+    public void RepaintedLines_AreKeptOnce()
+    {
+        // An agent's TUI redraws its status and input box in place, frame after frame.
+        var frame = "\x1b[10;1H✻ Thinking…\x1b[11;1H> type here\x1b[12;1H";
+        var m = Fed(frame, frame, frame, frame);
+        Assert.Equal(["✻ Thinking…", "> type here"], m.Lines());
+    }
+
+    [Fact]
+    public void RepeatedOutputLines_AreAllKept()
+    {
+        // Line feeds are real output, even when the same line comes twice.
+        Assert.Equal(["ok", "ok", "ok"], Fed("ok\r\nok\r\nok\r\n").Lines());
+    }
+
+    [Fact]
+    public void CursorForward_WithLargeOrOddParams()
+    {
+        Assert.Equal(["a b"], Fed("a\x1b[?Cb\r\n").Lines()); // no number: one space
+        Assert.Equal(["x" + new string(' ', 512) + "y"], Fed("x\x1b[99999999Cy\r\n").Lines());
+    }
+
+    [Fact]
     public void BareCarriageReturn_RedrawsTheLine()
     {
         Assert.Equal(["100%"], Fed("10%\r50%\r100%\r\n").Lines());

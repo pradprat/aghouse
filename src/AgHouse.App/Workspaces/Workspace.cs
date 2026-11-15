@@ -173,6 +173,8 @@ public sealed class Workspace : ObservableObject
         var agent = key == AgentKey;
         var i = _status.FindIndex(s => s.Key == key && (!agent || s.PaneId == paneId));
         var entry = new StatusEntry(key, text.Trim(), agent ? paneId : null);
+        // Claude Code's hook says "Working" after every tool call: the same chip needs no rebuild.
+        if (i >= 0 && _status[i] == entry) return;
         if (i >= 0) _status[i] = entry; else _status.Add(entry);
         RebuildChips();
     }
@@ -277,8 +279,7 @@ public sealed class Workspace : ObservableObject
         if (cwd != _lastBranchDir)
         {
             _lastBranchDir = cwd;
-            Branch = GitInfo.TryGetBranch(cwd);
-            _ = RefreshPullRequestAsync();
+            _ = RefreshBranchAsync(cwd);
         }
         OnPropertyChanged(nameof(PaneCount));
         RefreshDetails();
@@ -297,6 +298,22 @@ public sealed class Workspace : ObservableObject
             var waiting = waitingNewestFirst.FirstOrDefault(p => p.SlotId != slot.Id);
             slot.SetZoom(Math.Max(1, Slots.Count - 1), waiting?.Label);
         }
+    }
+
+    private int _branchRequest;
+
+    /// <summary>
+    /// Reads the folder's git branch off the UI thread: finding .git walks up the parent folders, which
+    /// is slow on a network share or a cloud-synced folder, and it ran on every cd. A newer cd wins.
+    /// </summary>
+    private async Task RefreshBranchAsync(string? cwd)
+    {
+        var request = ++_branchRequest;
+        var branch = await Task.Run(() => GitInfo.TryGetBranch(cwd)); // resumes on the UI thread
+        if (request != _branchRequest) return;
+        Branch = branch;
+        RefreshDetails();
+        await RefreshPullRequestAsync();
     }
 
     private int _prRequest;

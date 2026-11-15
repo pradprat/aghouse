@@ -7,6 +7,14 @@
     <Nullable>enable</Nullable>
     <AssemblyName>aghouse</AssemblyName>
     <RootNamespace>AgHouse.Cli</RootNamespace>
+    <!--
+      Claude Code starts this exe for every hook event (each tool call), so start-up time is paid
+      again and again. Nothing here depends on culture (numbers parse with InvariantCulture), so skip
+      loading ICU, and skip PGO instrumentation that a process living ~100 ms never benefits from.
+      Native AOT would remove most of the remaining runtime start-up, but needs the C++ build tools.
+    -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TieredPGO>false</TieredPGO>
   </PropertyGroup>
 
   <ItemGroup>

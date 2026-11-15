@@ -101,31 +101,80 @@ public sealed class OutputMirror(int maxLines = 10_000)
         switch (final)
         {
             case 'C': // cursor forward: ConPTY's way of printing a run of spaces
-                Append(new string(' ', Math.Clamp(FirstParam(1), 1, 512)));
+                AppendSpaces(Math.Clamp(FirstParam(1), 1, 512));
                 break;
             case 'H' or 'f' or 'd' or 'A' or 'B' or 'E' or 'F':
                 // The cursor moved to another line; what was on this one is done.
-                if (_line.ToString().Trim().Length > 0) Commit();
-                else _line.Clear();
+                EndRepaintedLine();
                 break;
             case 'J' when FirstParam(0) >= 2:
-                if (_line.ToString().Trim().Length > 0) Commit();
-                else _line.Clear();
+                EndRepaintedLine();
                 break;
         }
     }
 
+    /// <summary>
+    /// A line ended by a cursor move rather than a line feed. Full-screen programs (an agent's spinner
+    /// and input box) redraw the same few lines many times a second, which filled the mirror with
+    /// copies until real output fell off the front. A line equal to one of the last few lines that
+    /// ended this way is a repaint, not new output, and is dropped. Runs on every cursor move, so it
+    /// allocates only for a line it keeps.
+    /// </summary>
+    private void EndRepaintedLine()
+    {
+        var length = TrimmedLength();
+        if (length == 0) { _line.Clear(); return; }
+        foreach (var recent in _repainted)
+        {
+            if (recent is not null && SameAsLine(recent, length)) { _line.Clear(); return; }
+        }
+        _repainted[_nextRepainted] = _line.ToString(0, length);
+        _nextRepainted = (_nextRepainted + 1) % _repainted.Length;
+        Commit();
+    }
+
+    private readonly string?[] _repainted = new string?[8];
+    private int _nextRepainted;
+
+    /// <summary>The line's length without trailing whitespace; 0 when it's blank.</summary>
+    private int TrimmedLength()
+    {
+        var end = _line.Length;
+        while (end > 0 && char.IsWhiteSpace(_line[end - 1])) end--;
+        return end;
+    }
+
+    private bool SameAsLine(string s, int length)
+    {
+        if (s.Length != length) return false;
+        for (var i = 0; i < length; i++)
+        {
+            if (s[i] != _line[i]) return false;
+        }
+        return true;
+    }
+
     private int FirstParam(int fallback)
     {
-        var s = _params.ToString();
-        var semi = s.IndexOf(';');
-        if (semi >= 0) s = s[..semi];
-        return int.TryParse(s, out var n) && n > 0 ? n : fallback;
+        // The digits before the first ';', without building a string: this runs for every cursor move.
+        var n = 0;
+        for (var i = 0; i < _params.Length && _params[i] != ';'; i++)
+        {
+            var c = _params[i];
+            if (c is < '0' or > '9') return fallback;
+            n = Math.Min(n * 10 + (c - '0'), 1_000_000); // callers clamp far below this
+        }
+        return n > 0 ? n : fallback;
     }
 
     private void Append(string s)
     {
         if (_line.Length + s.Length <= MaxLineLength) _line.Append(s);
+    }
+
+    private void AppendSpaces(int count)
+    {
+        if (_line.Length + count <= MaxLineLength) _line.Append(' ', count);
     }
 
     private void Commit()

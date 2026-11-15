@@ -481,7 +481,8 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     /// <summary>A person asked to close a whole workspace (context menu). Same rule as panes.</summary>
     public void RequestCloseWorkspace(Workspace ws)
     {
-        var busy = ws.Panes.Values.Select(p => RunningItem(ws, p, withWorkspace: false)).OfType<ConfirmItem>().ToList();
+        var running = RunningSnapshot(ws.Panes.Values);
+        var busy = ws.Panes.Values.Select(p => RunningItem(ws, p, running, withWorkspace: false)).OfType<ConfirmItem>().ToList();
         if (busy.Count > 0 && !ConfirmDialog.Ask(_window,
                 $"Close “{ws.Name}”?",
                 busy.Count == 1 ? "Closing the workspace ends this program:" : $"Closing the workspace ends these {busy.Count} programs:",
@@ -501,8 +502,9 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     /// </summary>
     public bool ConfirmQuit()
     {
+        var running = RunningSnapshot(Workspaces.SelectMany(w => w.Panes.Values));
         var busy = Workspaces
-            .SelectMany(w => w.Panes.Values.Select(p => RunningItem(w, p, withWorkspace: true)))
+            .SelectMany(w => w.Panes.Values.Select(p => RunningItem(w, p, running, withWorkspace: true)))
             .OfType<ConfirmItem>()
             .ToList();
         if (busy.Count == 0) return true;
@@ -520,15 +522,20 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     }
 
     /// <summary>A pane's running program as a confirmation row, or null when it's sitting at a prompt.</summary>
-    private static ConfirmItem? RunningItem(Workspace ws, PaneSession pane, bool withWorkspace)
+    private static ConfirmItem? RunningItem(Workspace ws, PaneSession pane,
+        IReadOnlyDictionary<int, IReadOnlyList<string>> snapshot, bool withWorkspace)
     {
-        if (pane.DescribeRunning() is not { } running) return null;
+        if (pane.DescribeRunning(snapshot) is not { } running) return null;
         return new ConfirmItem(
             TitleText.WithoutStatusGlyphs(running),
             withWorkspace ? $"{ws.Name} › {pane.Label}" : pane.Label,
             pane.HasUnread,
             ws.AgentStateOf(pane.Id));
     }
+
+    /// <summary>What runs under each of these panes' shells, from one snapshot of the process table.</summary>
+    private static Dictionary<int, IReadOnlyList<string>> RunningSnapshot(IEnumerable<PaneSession> panes) =>
+        ProcessTree.RunningUnder(panes.Select(p => p.ShellPid).OfType<int>());
 
     /// <summary><c>aghouse quit --force</c>: the window closes without asking about running programs.</summary>
     public bool QuitForced { get; private set; }
@@ -693,8 +700,10 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         {
             // A name the user gave a tab is kept exactly as typed.
             if (pane.CustomName is { } custom) { pane.Label = custom; continue; }
-            var name = pane.ProgramTitle
-                ?? (pane.FolderName is { } folder && !NamesFolder(ws.Name, folder) ? folder : pane.Profile.Name);
+            // Without the agent's status glyph: it's a live spinner, so keeping it would rename the pane
+            // (and lay out its header again) on every frame, and UI fonts often draw it as a box.
+            var name = (pane.ProgramTitle is { } title ? TitleText.WithoutStatusGlyphs(title) : null)
+                ??(pane.FolderName is { } folder && !NamesFolder(ws.Name, folder) ? folder : pane.Profile.Name);
             var n = seen[name] = seen.GetValueOrDefault(name) + 1;
             pane.Label = n == 1 ? name : $"{name} ({n})";
         }
@@ -1101,7 +1110,8 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     /// </summary>
     private async Task RefreshPortsAsync()
     {
-        if (_scanningPorts || _shuttingDown) return;
+        // Nobody sees the sidebar of a minimized window: the next tick after it comes back catches up.
+        if (_scanningPorts || _shuttingDown || _window.WindowState == WindowState.Minimized) return;
         _scanningPorts = true;
         try
         {
@@ -1216,12 +1226,28 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
 
     private static string ResolveFont(string requested)
     {
-        var installed = System.Windows.Media.Fonts.SystemFontFamilies.Select(f => f.Source).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var candidate in new[] { requested, "Cascadia Mono", "Cascadia Code", "Consolas" })
         {
-            if (installed.Contains(candidate)) return candidate;
+            if (IsInstalled(candidate)) return candidate;
         }
         return "Consolas";
+    }
+
+    /// <summary>
+    /// Whether a font family is installed, by asking for that one family. This runs before the window
+    /// first shows, and listing every installed family instead took ~130 ms.
+    /// </summary>
+    private static bool IsInstalled(string family)
+    {
+        // A comma list or a font URI would make WPF fall back to another family and answer yes.
+        if (string.IsNullOrWhiteSpace(family) || family.IndexOfAny([',', '#', '/']) >= 0) return false;
+        try
+        {
+            var typeface = new System.Windows.Media.Typeface(new System.Windows.Media.FontFamily(family),
+                FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+            return typeface.TryGetGlyphTypeface(out _);
+        }
+        catch (Exception ex) when (ex is ArgumentException or UriFormatException) { return false; }
     }
 
     public void Dispose()

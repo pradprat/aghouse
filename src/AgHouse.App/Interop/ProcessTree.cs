@@ -22,20 +22,38 @@ internal static partial class ProcessTree
     /// A child with the shell's own image name (Git for Windows' bin\bash.exe → usr\bin\bash.exe)
     /// is treated as part of the shell and looked through. Empty when the shell is idle or on error.
     /// </summary>
-    public static IReadOnlyList<string> RunningUnder(int shellPid)
-    {
-        var all = Snapshot();
-        if (all.Count == 0) return [];
-        var shellName = all.FirstOrDefault(p => p.Pid == shellPid).Name;
+    public static IReadOnlyList<string> RunningUnder(int shellPid) =>
+        RunningUnder([shellPid]).GetValueOrDefault(shellPid) ?? [];
 
+    /// <summary>
+    /// <see cref="RunningUnder(int)"/> for several shells from one snapshot of the process table. A
+    /// snapshot costs ~9 ms with 450 processes, so asking about every pane before a quit or a
+    /// workspace close takes one, not one per pane.
+    /// </summary>
+    public static Dictionary<int, IReadOnlyList<string>> RunningUnder(IEnumerable<int> shellPids)
+    {
+        var result = new Dictionary<int, IReadOnlyList<string>>();
+        var all = Snapshot();
+        if (all.Count == 0) return result;
+        var byPid = new Dictionary<int, Entry>(all.Count);
+        foreach (var p in all) byPid.TryAdd(p.Pid, p);
+        var children = all.ToLookup(p => p.ParentPid);
+        foreach (var shellPid in shellPids.Distinct()) result[shellPid] = Under(shellPid, byPid, children);
+        return result;
+    }
+
+    private static List<string> Under(int shellPid, Dictionary<int, Entry> byPid, ILookup<int, Entry> children)
+    {
+        var shellName = byPid.TryGetValue(shellPid, out var shell) ? shell.Name : null;
         var found = new List<string>();
         var queue = new Queue<int>([shellPid]);
         var seen = new HashSet<int> { shellPid };
         while (queue.Count > 0)
         {
             var parent = queue.Dequeue();
-            foreach (var child in all.Where(p => p.ParentPid == parent && seen.Add(p.Pid)))
+            foreach (var child in children[parent])
             {
+                if (!seen.Add(child.Pid)) continue;
                 if (Plumbing.Contains(child.Name)) continue;
                 if (shellName is not null && string.Equals(child.Name, shellName, StringComparison.OrdinalIgnoreCase))
                 {

@@ -212,9 +212,17 @@ public sealed class PaneSession : ObservableObject, IDisposable
     public int? ShellPid => _process is ProcessFactory.WrappedProcess { HasExited: false } p ? p.Pid : null;
 
     /// <summary>A short name for what's running, for confirmations: the program's own title if it set one, else its exe.</summary>
-    public string? DescribeRunning()
+    public string? DescribeRunning() => Describe(RunningPrograms());
+
+    /// <summary>
+    /// <see cref="DescribeRunning()"/> from a snapshot already taken for many panes
+    /// (<see cref="ProcessTree.RunningUnder(IEnumerable{int})"/>).
+    /// </summary>
+    public string? DescribeRunning(IReadOnlyDictionary<int, IReadOnlyList<string>> running) =>
+        Describe(ShellPid is { } pid && running.TryGetValue(pid, out var programs) ? programs : []);
+
+    private string? Describe(IReadOnlyList<string> running)
     {
-        var running = RunningPrograms();
         if (running.Count == 0) return null;
         if (ProgramTitle is { } t) return t;
         return running.Count == 1 ? running[0] : $"{running[0]} and {running.Count - 1} more";
@@ -329,27 +337,63 @@ public sealed class PaneSession : ObservableObject, IDisposable
         }, TaskCreationOptions.LongRunning);
     }
 
+    // Output can carry events far faster than anyone can read them: an agent's spinner retitles the
+    // pane many times a second, and `cat` of a binary rings thousands of bells per chunk. Titles and
+    // bells are coalesced: at most one update of each is queued on the UI thread at a time, and it
+    // applies the newest value when it runs.
+    private string? _pendingTitle;
+    private int _titleQueued;
+    private int _bellQueued;
+
     /// <summary>Runs on the ConPTY reader thread for every output chunk. Observes only.</summary>
     private void OnOutput(ref Span<char> str)
     {
         Mirror.Feed(str);
         _parser.Feed(str, _scratch);
         if (_scratch.Count == 0) return;
-        var events = _scratch.ToArray();
+
+        bool title = false, bell = false;
+        List<TerminalEvent>? others = null;
+        foreach (var e in _scratch)
+        {
+            switch (e)
+            {
+                case TitleEvent t: Volatile.Write(ref _pendingTitle, t.Title); title = true; break;
+                case BellEvent: bell = true; break;
+                case CwdEvent:
+                    others?.RemoveAll(o => o is CwdEvent); // only where it ended up matters
+                    (others ??= []).Add(e);
+                    break;
+                default: (others ??= []).Add(e); break;
+            }
+        }
         _scratch.Clear();
+
+        // A title is a label, not a signal: it waits until input and rendering are done.
+        if (title && Interlocked.Exchange(ref _titleQueued, 1) == 0) _ui.BeginInvoke(DispatcherPriority.Background, ApplyTitle);
+        if (bell && Interlocked.Exchange(ref _bellQueued, 1) == 0) _ui.BeginInvoke(RaiseBell);
+        if (others is null) return;
         _ui.BeginInvoke(() =>
         {
             if (_disposed) return;
-            foreach (var e in events)
+            foreach (var e in others)
             {
-                switch (e)
-                {
-                    case CwdEvent c: Cwd = c.Path; break;
-                    case TitleEvent t: Title = t.Title; break;
-                    default: TerminalEvent?.Invoke(this, e); break;
-                }
+                if (e is CwdEvent c) Cwd = c.Path;
+                else TerminalEvent?.Invoke(this, e);
             }
         });
+    }
+
+    private void ApplyTitle()
+    {
+        Interlocked.Exchange(ref _titleQueued, 0); // before reading: a newer title queues another update
+        if (!_disposed) Title = Volatile.Read(ref _pendingTitle);
+    }
+
+    private void RaiseBell()
+    {
+        Interlocked.Exchange(ref _bellQueued, 0);
+        if (!_disposed) TerminalEvent?.Invoke(this, BellEvent.Instance);
     }
 
     public void SendText(string text) => Pty.WriteToTerm(text);

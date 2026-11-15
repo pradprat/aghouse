@@ -2,6 +2,7 @@ using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace AgHouse.Core.Ipc;
 
@@ -89,18 +90,31 @@ public sealed class RpcResponse
     public static RpcResponse Failure(int id, string error) => new() { Id = id, Ok = false, Error = error };
 }
 
-/// <summary>Newline-delimited JSON over a named pipe.</summary>
+/// <summary>
+/// Newline-delimited JSON over a named pipe. The wire types use generated serializers: the CLI
+/// starts for every Claude Code hook event, and building reflection metadata for them on each start
+/// cost ~38 ms of a ~120 ms call.
+/// </summary>
 public static class RpcJson
 {
     public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = false,
+        TypeInfoResolver = RpcJsonContext.Default,
     };
 
-    public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Options);
+    public static string Serialize(RpcRequest value) => JsonSerializer.Serialize(value, RpcJsonContext.Default.RpcRequest);
 
-    public static T? Deserialize<T>(string line) => JsonSerializer.Deserialize<T>(line, Options);
+    public static string Serialize(RpcResponse value) => JsonSerializer.Serialize(value, RpcJsonContext.Default.RpcResponse);
+
+    public static T? Deserialize<T>(string line) where T : class =>
+        (T?)JsonSerializer.Deserialize(line, typeof(T), RpcJsonContext.Default);
 }
+
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, WriteIndented = false)]
+[JsonSerializable(typeof(RpcRequest))]
+[JsonSerializable(typeof(RpcResponse))]
+internal sealed partial class RpcJsonContext : JsonSerializerContext;
 
 public sealed class RpcClient : IAsyncDisposable
 {

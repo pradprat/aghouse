@@ -21,14 +21,38 @@ internal static class PullRequests
     {
         if (_ghMissing || string.IsNullOrEmpty(cwd) || string.IsNullOrEmpty(branch) || !Directory.Exists(cwd)) return null;
         var key = cwd + "|" + branch;
+        Task<string?> lookup;
         lock (Cache)
         {
             if (Cache.TryGetValue(key, out var hit) && DateTime.UtcNow - hit.At < CacheFor) return hit.Text;
+            // Workspaces in the same folder ask at the same moment (the refresh timer): one gh answers them all.
+            if (!InFlight.TryGetValue(key, out lookup!))
+            {
+                lookup = QueryAndCacheAsync(key, cwd);
+                InFlight[key] = lookup;
+            }
         }
+        return await lookup.ConfigureAwait(false);
+    }
 
-        var text = await Task.Run(() => Query(cwd)).ConfigureAwait(false);
-        lock (Cache) Cache[key] = (DateTime.UtcNow, text);
-        return text;
+    private static readonly Dictionary<string, Task<string?>> InFlight = new(StringComparer.OrdinalIgnoreCase);
+
+    private static async Task<string?> QueryAndCacheAsync(string key, string cwd)
+    {
+        string? text = null;
+        try
+        {
+            text = await Task.Run(() => Query(cwd)).ConfigureAwait(false);
+            return text;
+        }
+        finally
+        {
+            lock (Cache)
+            {
+                Cache[key] = (DateTime.UtcNow, text);
+                InFlight.Remove(key);
+            }
+        }
     }
 
     private static string? Query(string cwd)

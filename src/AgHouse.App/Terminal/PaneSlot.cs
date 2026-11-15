@@ -321,32 +321,47 @@ public sealed class PaneSlot
         _headerTint.Visibility = !multi && waiting ? Visibility.Visible : Visibility.Collapsed;
         _attentionText.Visibility = !multi && waiting ? Visibility.Visible : Visibility.Collapsed;
         // At rest: Secondary, not Tertiary, which falls under 4.5:1 on the light terminal background.
-        _headerText.SetResourceReference(TextBlock.ForegroundProperty, focused ? "TextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush");
+        SetBrush(_headerText, TextBlock.ForegroundProperty, ref _headerBrushKey, focused ? "TextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush");
         _headerText.FontWeight = focused ? FontWeights.SemiBold : FontWeights.Normal;
 
-        foreach (var view in _tabViews.Values) view.Update(ReferenceEquals(view.Pane, ActiveTab));
+        var tabsChanged = false;
+        foreach (var view in _tabViews.Values) tabsChanged |= view.Update(ReferenceEquals(view.Pane, ActiveTab));
         // A tab whose name grew is re-measured at its old (trimmed) width, so the strip wouldn't hear
-        // that it wants more room. Lay the whole strip out again from natural widths.
-        _tabStrip.InvalidateMeasure();
+        // that it wants more room. Lay the whole strip out again from natural widths, when a tab changed.
+        if (tabsChanged || _tabStrip.Children.Count != _laidOutTabs)
+        {
+            _laidOutTabs = _tabStrip.Children.Count;
+            _tabStrip.InvalidateMeasure();
+        }
 
-        if (waiting)
-        {
-            Frame.SetResourceReference(Border.BorderBrushProperty, "AccentFillColorDefaultBrush");
-            Frame.BorderThickness = new Thickness(2);
-        }
-        else if (focused)
-        {
-            Frame.SetResourceReference(Border.BorderBrushProperty, "TextFillColorPrimaryBrush");
-            Frame.BorderThickness = new Thickness(1);
-        }
-        else
-        {
-            Frame.SetResourceReference(Border.BorderBrushProperty, "ControlStrokeColorDefaultBrush");
-            Frame.BorderThickness = new Thickness(1);
-        }
+        var (frameKey, thickness) = waiting ? ("AccentFillColorDefaultBrush", 2)
+            : focused ? ("TextFillColorPrimaryBrush", 1)
+            : ("ControlStrokeColorDefaultBrush", 1);
+        SetBrush(Frame, Border.BorderBrushProperty, ref _frameBrushKey, frameKey);
+        Frame.BorderThickness = new Thickness(thickness);
         // Keep the terminal from shifting when the border gets thicker.
         var th = Frame.BorderThickness.Left;
         Frame.Padding = new Thickness(5 - th, 3 - th, 3 - th, 3 - th);
+    }
+
+    private string? _headerBrushKey;
+    private string? _frameBrushKey;
+    private int _laidOutTabs;
+
+    /// <summary>
+    /// SetResourceReference only when the key changes. Each call installs a new resource expression,
+    /// which looks the brush up again and invalidates the element even when the key is the same, and
+    /// Refresh runs on every label or attention change.
+    /// </summary>
+    private static void SetBrush(DependencyObject target, DependencyProperty property, ref string? current, string key)
+    {
+        if (current == key) return;
+        current = key;
+        switch (target)
+        {
+            case FrameworkElement fe: fe.SetResourceReference(property, key); break;
+            case FrameworkContentElement fce: fce.SetResourceReference(property, key); break;
+        }
     }
 
     private static Border Tint()
@@ -461,7 +476,12 @@ public sealed class PaneSlot
         public PaneSession Pane { get; }
         public Grid Root { get; }
 
-        public void Update(bool active)
+        private (string Label, bool Waiting, bool Active)? _measured;
+        private string? _bgKey;
+        private string? _nameKey;
+
+        /// <summary>Shows the tab's current state. True when something that changes its width changed.</summary>
+        public bool Update(bool active)
         {
             _active = active;
             var waiting = Pane.HasUnread;
@@ -472,15 +492,20 @@ public sealed class PaneSlot
 
             _tint.Visibility = waiting ? Visibility.Visible : Visibility.Collapsed;
             TabStripPanel.SetKeepWide(Root, waiting);
-            if (active) _bg.SetResourceReference(Border.BackgroundProperty, "SubtleFillColorSecondaryBrush");
-            else if (Root.IsMouseOver) _bg.SetResourceReference(Border.BackgroundProperty, "SubtleFillColorTertiaryBrush");
-            else _bg.Background = Brushes.Transparent;
-            _name.SetResourceReference(TextElement.ForegroundProperty, active ? "TextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush");
+            var bg = active ? "SubtleFillColorSecondaryBrush" : Root.IsMouseOver ? "SubtleFillColorTertiaryBrush" : null;
+            if (bg is null) { _bg.Background = Brushes.Transparent; _bgKey = null; }
+            else SetBrush(_bg, Border.BackgroundProperty, ref _bgKey, bg);
+            SetBrush(_name, TextElement.ForegroundProperty, ref _nameKey, active ? "TextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush");
             _name.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
             // ✕ only on the active tab: other tabs close with a middle-click or their menu. Showing it on hover
             // would either shift the strip under the pointer or reserve room that crowded tabs need for names.
             _close.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
             _row.Margin = new Thickness(8, 0, active ? 1 : 8, 0); // the ✕ brings its own padding
+
+            var state = (Pane.Label, waiting, active);
+            if (_measured == state) return false;
+            _measured = state;
+            return true;
         }
 
         private void BeginRename()
