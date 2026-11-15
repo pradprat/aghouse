@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace AgHouse.Core;
 
@@ -7,7 +8,7 @@ public enum HookState
 {
     /// <summary>Every event aghouse uses runs aghouse claude-hook.</summary>
     Connected,
-    /// <summary>Some events do, some don't (an older snippet, or a hand edit).</summary>
+    /// <summary>Some events do, some don't, or some run an older command (an older snippet, or a hand edit).</summary>
     Partial,
     NotConnected,
     /// <summary>~/.claude/settings.json exists but isn't valid JSON; aghouse won't touch it.</summary>
@@ -16,12 +17,30 @@ public enum HookState
 
 /// <summary>
 /// Claude Code's hooks in ~/.claude/settings.json: whether aghouse's are there, and adding them.
-/// Adding only ever appends aghouse's own entry to an event's list. Every other setting and hook
-/// stays exactly as it was, and a copy of the file is saved first.
+/// Adding only ever appends aghouse's own entry to an event's list, or updates aghouse's own
+/// command in place. Every other setting and hook stays exactly as it was, and a copy of the file
+/// is saved first.
 /// </summary>
-public static class ClaudeHooks
+public static partial class ClaudeHooks
 {
-    public const string Command = "aghouse claude-hook";
+    /// <summary>The bare command older versions wrote. Still recognised, and upgraded by <see cref="Install"/>.</summary>
+    public const string BareCommand = "aghouse claude-hook";
+
+    /// <summary>
+    /// The command aghouse writes: the full path of the aghouse.exe next to this program, so the hook
+    /// never runs whatever "aghouse" a project folder or PATH entry happens to hold (cmd.exe looks in
+    /// the current folder first). Forward slashes and no quotes when the path has no spaces, so Git
+    /// Bash, cmd and PowerShell all run it. Falls back to <see cref="BareCommand"/> when there is no
+    /// aghouse.exe beside us (a dev build of the tests).
+    /// </summary>
+    public static string Command { get; } = CommandFor(Path.Combine(AppContext.BaseDirectory, "aghouse.exe"));
+
+    public static string CommandFor(string exePath)
+    {
+        if (!File.Exists(exePath)) return BareCommand;
+        var path = Path.GetFullPath(exePath).Replace('\\', '/');
+        return (path.Contains(' ') ? $"\"{path}\"" : path) + " claude-hook";
+    }
 
     /// <summary>
     /// Notification and Stop raise "Needs you"; UserPromptSubmit and PostToolUse show "Working";
@@ -35,41 +54,55 @@ public static class ClaudeHooks
     private static readonly JsonDocumentOptions ReadOptions = new() { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip };
     private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
 
+    /// <summary><paramref name="Missing"/>: the events that don't run <see cref="Command"/> yet (absent, or an older command).</summary>
     public sealed record Status(HookState State, IReadOnlyList<string> Missing, string? Problem);
 
-    public static Status Inspect(string? path = null)
+    public static Status Inspect(string? path = null, string? command = null)
     {
         path ??= DefaultPath;
         try
         {
             if (!File.Exists(path)) return new Status(HookState.NotConnected, Events, null);
-            return Inspect(JsonNode.Parse(File.ReadAllText(path), documentOptions: ReadOptions) as JsonObject);
+            return Inspect(JsonNode.Parse(File.ReadAllText(path), documentOptions: ReadOptions) as JsonObject, command);
         }
         catch (JsonException ex) { return new Status(HookState.Unreadable, Events, ex.Message); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return new Status(HookState.Unreadable, Events, ex.Message); }
     }
 
-    public static Status Inspect(JsonObject? root)
+    public static Status Inspect(JsonObject? root, string? command = null)
     {
+        command ??= Command;
         if (root is null) return new Status(HookState.Unreadable, Events, "The file doesn't hold a JSON object.");
-        var missing = Events.Where(e => !HasOurHook(root, e)).ToList();
-        var state = missing.Count == 0 ? HookState.Connected : missing.Count == Events.Count ? HookState.NotConnected : HookState.Partial;
+        var missing = Events.Where(e => !OurCommands(root, e).Any(c => c.GetValue<string>() == command)).ToList();
+        var none = Events.All(e => !OurCommands(root, e).Any());
+        var state = missing.Count == 0 ? HookState.Connected : none ? HookState.NotConnected : HookState.Partial;
         return new Status(state, missing, null);
     }
 
-    /// <summary>Adds aghouse's hook to each event that lacks it. Returns the events it added.</summary>
-    public static IReadOnlyList<string> Merge(JsonObject root)
+    /// <summary>
+    /// Makes each event run <paramref name="command"/> (default <see cref="Command"/>): adds aghouse's
+    /// hook where it lacks one, and rewrites an older aghouse command in place. Returns the events changed.
+    /// </summary>
+    public static IReadOnlyList<string> Merge(JsonObject root, string? command = null)
     {
+        command ??= Command;
         if (root["hooks"] is not JsonObject hooks)
         {
             if (root["hooks"] is not null) throw new InvalidOperationException("\"hooks\" in Claude Code's settings isn't an object.");
             hooks = [];
             root["hooks"] = hooks;
         }
-        var added = new List<string>();
+        var changed = new List<string>();
         foreach (var name in Events)
         {
-            if (HasOurHook(root, name)) continue;
+            var ours = OurCommands(root, name).ToList();
+            if (ours.Count > 0)
+            {
+                var stale = ours.Where(v => v.GetValue<string>() != command).ToList();
+                foreach (var v in stale) v.ReplaceWith(JsonValue.Create(command));
+                if (stale.Count > 0) changed.Add(name);
+                continue;
+            }
             if (hooks[name] is not JsonArray list)
             {
                 if (hooks[name] is not null) throw new InvalidOperationException($"\"hooks.{name}\" in Claude Code's settings isn't a list.");
@@ -78,19 +111,19 @@ public static class ClaudeHooks
             }
             list.Add(new JsonObject
             {
-                ["hooks"] = new JsonArray(new JsonObject { ["type"] = "command", ["command"] = Command }),
+                ["hooks"] = new JsonArray(new JsonObject { ["type"] = "command", ["command"] = command }),
             });
-            added.Add(name);
+            changed.Add(name);
         }
-        return added;
+        return changed;
     }
 
     /// <summary>
-    /// Adds the hooks to the file, creating it if needed. An existing file is copied to
-    /// settings.json.aghouse-backup first. Refuses (throws) when the file can't be read as JSON.
-    /// Returns the events added and the backup's path (null when there was no file).
+    /// Adds the hooks to the file (or updates an older aghouse command), creating it if needed. An
+    /// existing file is copied to settings.json.aghouse-backup first. Refuses (throws) when the file
+    /// can't be read as JSON. Returns the events changed and the backup's path (null when there was no file).
     /// </summary>
-    public static (IReadOnlyList<string> Added, string? Backup) Install(string? path = null)
+    public static (IReadOnlyList<string> Added, string? Backup) Install(string? path = null, string? command = null)
     {
         path ??= DefaultPath;
         JsonObject root;
@@ -102,7 +135,7 @@ public static class ClaudeHooks
         }
         else root = [];
 
-        var added = Merge(root);
+        var added = Merge(root, command);
         if (added.Count == 0) return (added, null);
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -117,11 +150,19 @@ public static class ClaudeHooks
         return (added, backup);
     }
 
-    private static bool HasOurHook(JsonObject root, string eventName) =>
+    /// <summary>"aghouse claude-hook", "aghouse.exe claude-hook", or a path ending in aghouse(.exe), quoted or not.</summary>
+    [GeneratedRegex("""(^|[\s"'/\\])aghouse(\.exe)?["']?\s+claude-hook(\s|$)""", RegexOptions.IgnoreCase)]
+    private static partial Regex OurCommand();
+
+    public static bool IsOurCommand(string command) => OurCommand().IsMatch(command);
+
+    /// <summary>The "command" values of aghouse's hooks for one event.</summary>
+    private static IEnumerable<JsonValue> OurCommands(JsonObject root, string eventName) =>
         root["hooks"]?[eventName] is JsonArray entries
-        && entries.OfType<JsonObject>().Any(entry =>
-            entry["hooks"] is JsonArray commands
-            && commands.OfType<JsonObject>().Any(c =>
-                c["command"] is JsonValue v && v.TryGetValue<string>(out var cmd)
-                && cmd.Contains(Command, StringComparison.OrdinalIgnoreCase)));
+            ? entries.OfType<JsonObject>()
+                .SelectMany(entry => entry["hooks"] is JsonArray commands ? commands.OfType<JsonObject>() : [])
+                .Select(c => c["command"] as JsonValue)
+                .Where(v => v is not null && v.TryGetValue<string>(out var cmd) && IsOurCommand(cmd))
+                .Select(v => v!)
+            : [];
 }

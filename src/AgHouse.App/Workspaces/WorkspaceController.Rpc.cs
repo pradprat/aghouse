@@ -99,6 +99,7 @@ public sealed partial class WorkspaceController
             case Methods.SendText:
             {
                 var id = RequirePane(r.Get("pane"));
+                GuardInput(r, id);
                 var pane = FindPane(id).Pane!;
                 // Where the output stood just before the text went in: wait-for from here can't miss the reply.
                 var cursor = pane.Mirror.Read(last: 0).Next;
@@ -112,6 +113,7 @@ public sealed partial class WorkspaceController
                 if (pane is not null && FindPane(pane).Pane is null) pane = null; // stale id: fall back to current
                 var title = r.Get("title");
                 var body = r.Get("body");
+                MarkAgent(r);
                 Notify(pane, title, body);
                 return null;
             }
@@ -121,6 +123,7 @@ public sealed partial class WorkspaceController
                 var key = r.Get("key");
                 var text = r.Get("text");
                 if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(text)) throw new RpcException("Usage: set-status <key> <text>.");
+                if (key.Trim() == Workspace.AgentKey) MarkAgent(r);
                 WorkspaceFor(r).SetStatus(key.Trim(), text, CallerPane(r));
                 return null;
             }
@@ -211,6 +214,7 @@ public sealed partial class WorkspaceController
                 var id = RequirePane(r.Get("pane"));
                 var keys = (r.Get("keys") ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (keys.Length == 0) throw new RpcException("Usage: send-keys <key>... (e.g. ctrl+c, up enter).");
+                GuardInput(r, id);
                 FindPane(id).Pane!.SendText(KeyChords.ToSequence(keys));
                 return null;
             }
@@ -505,6 +509,49 @@ public sealed partial class WorkspaceController
                  ?? Workspaces.FirstOrDefault(w => string.Equals(w.Name, key, StringComparison.OrdinalIgnoreCase))
                  ?? (int.TryParse(key, out var n) && n >= 1 && n <= Workspaces.Count ? Workspaces[n - 1] : null);
         return ws ?? throw new RpcException($"Workspace '{key}' not found.");
+    }
+
+    /// <summary>
+    /// The pane a request came from, by the AGHOUSE_PANE_TOKEN the CLI sends. Null for a caller
+    /// outside aghouse's panes (the user's own terminal or script) or an unknown token.
+    /// </summary>
+    private PaneSession? CallerOf(RpcRequest r)
+    {
+        if (r.Get(RpcRequest.CallerKey) is not { Length: > 0 } token) return null;
+        var bytes = System.Text.Encoding.UTF8.GetBytes(token);
+        return Workspaces.SelectMany(w => w.Panes.Values).FirstOrDefault(p => p.Token.Length > 0
+            && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(p.Token), bytes));
+    }
+
+    /// <summary>An agent reported from the caller's pane (a Claude Code hook): other panes may no longer type into it.</summary>
+    private void MarkAgent(RpcRequest r)
+    {
+        if (CallerOf(r) is { } caller) caller.AgentSeen = true;
+    }
+
+    /// <summary>Program names of coding agents, for panes whose agent hasn't reported through a hook.</summary>
+    private static readonly string[] AgentPrograms = ["claude", "codex", "gemini", "aider", "opencode", "cursor-agent", "amp", "copilot"];
+
+    private static bool RunsAgent(PaneSession pane) =>
+        pane.AgentSeen
+        || pane.RunningPrograms().Any(p => AgentPrograms.Contains(
+            System.IO.Path.GetFileNameWithoutExtension(p), StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// A pane typing into another pane that runs an agent could answer that agent's permission prompt,
+    /// so an agent misled by what it read could approve another agent's actions. Refused unless the
+    /// user set allowInputToAgentPanes in settings.json. Requests from outside aghouse's panes (the
+    /// user's own scripts) and a pane typing into panes without an agent (shells it opened) are fine.
+    /// </summary>
+    private void GuardInput(RpcRequest r, string targetId)
+    {
+        if (_settings.AllowInputToAgentPanes) return;
+        if (CallerOf(r) is not { } caller || caller.Id == targetId) return;
+        if (FindPane(targetId).Pane is { } target && RunsAgent(target))
+        {
+            throw new RpcException($"Pane '{targetId}' runs an agent, and one pane can't type into another agent's pane. "
+                + "Ask the user to do it there.");
+        }
     }
 
     /// <summary>The pane the request came from, if it still exists (agent status is kept per pane).</summary>

@@ -158,6 +158,16 @@
                                 </StackPanel>
                             </DockPanel>
                         </Border>
+                        <Border Style="{StaticResource Row}">
+                            <DockPanel>
+                                <CheckBox x:Name="WarnMultilinePaste" DockPanel.Dock="Right" VerticalAlignment="Center" Click="Changed"
+                                          AutomationProperties.Name="Ask before pasting lines that would run" />
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Text="Ask before pasting lines that would run" Style="{StaticResource Label}" />
+                                    <TextBlock Text="When the clipboard holds a line break and the shell would run each line as it arrives. Copied text can hide one." Style="{StaticResource Help}" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
                     </StackPanel>
 
                     <!-- ───────── Appearance ───────── -->

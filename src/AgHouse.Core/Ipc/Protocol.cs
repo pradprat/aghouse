@@ -11,6 +11,12 @@ public static class AgEnv
     public const string PaneId = "AGHOUSE_PANE_ID";
     public const string WorkspaceId = "AGHOUSE_WORKSPACE_ID";
 
+    /// <summary>
+    /// A random secret per pane. The CLI sends it with every request (<see cref="RpcRequest.CallerKey"/>)
+    /// so aghouse knows which pane is asking: pane ids are guessable, the token isn't.
+    /// </summary>
+    public const string PaneToken = "AGHOUSE_PANE_TOKEN";
+
     /// <summary>Per-user pipe name. Overridable with AGHOUSE_PIPE (set in every pane).</summary>
     public static string PipeName =>
         Environment.GetEnvironmentVariable(Pipe) is { Length: > 0 } p ? p : DefaultPipeName;
@@ -66,6 +72,9 @@ public sealed class RpcRequest
     public string Method { get; set; } = "";
     public Dictionary<string, string?> Params { get; set; } = [];
 
+    /// <summary>The param carrying the caller's <see cref="AgEnv.PaneToken"/>, when it runs in a pane.</summary>
+    public const string CallerKey = "callerToken";
+
     public string? Get(string key) => Params.TryGetValue(key, out var v) ? v : null;
 }
 
@@ -119,6 +128,11 @@ public sealed class RpcClient : IAsyncDisposable
     public async Task<RpcResponse> CallAsync(string method, Dictionary<string, string?>? parameters = null, CancellationToken ct = default)
     {
         var req = new RpcRequest { Id = Interlocked.Increment(ref _nextId), Method = method, Params = parameters ?? [] };
+        if (!req.Params.ContainsKey(RpcRequest.CallerKey)
+            && Environment.GetEnvironmentVariable(AgEnv.PaneToken) is { Length: > 0 } token)
+        {
+            req.Params[RpcRequest.CallerKey] = token;
+        }
         await _writer.WriteLineAsync(RpcJson.Serialize(req).AsMemory(), ct).ConfigureAwait(false);
         var line = await _reader.ReadLineAsync(ct).ConfigureAwait(false)
                    ?? throw new IOException("aghouse closed the connection.");

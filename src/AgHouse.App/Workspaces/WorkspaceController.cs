@@ -306,10 +306,12 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     private PaneSession CreatePane(Workspace ws, PaneSlot slot, ShellProfile profile, string? cwd, int? index = null)
     {
         var id = NewId("p");
+        var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
         var env = new Dictionary<string, string?>
         {
             [AgEnv.Pipe] = AgEnv.DefaultPipeName,
             [AgEnv.PaneId] = id,
+            [AgEnv.PaneToken] = token,
             [AgEnv.WorkspaceId] = ws.Id,
             ["TERM_PROGRAM"] = "aghouse",
             // aghouse.exe (the CLI) lives next to the app.
@@ -321,7 +323,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
 
         var pane = new PaneSession(id, ws.Id, profile, cwd,
             _light ? TerminalThemes.Light : TerminalThemes.Dark, TerminalThemes.BackgroundOf(_light),
-            _fontFamily, _settings.FontSize, env);
+            _fontFamily, _settings.FontSize, env) { Token = token };
 
         pane.TerminalEvent += OnTerminalEvent;
         pane.AttentionHandled += (p, message, askedAt) => RememberHandled(ws, p, message, askedAt);
@@ -721,7 +723,8 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         {
             // A bare notification still says something: "aghouse" / "Needs you".
             if (_settings.Toasts) _toasts.Show(string.IsNullOrWhiteSpace(title) ? ws.Name : title,
-                string.IsNullOrWhiteSpace(body) ? "Needs you" : body, ws.Id, pane?.Id);
+                string.IsNullOrWhiteSpace(body) ? "Needs you" : body, ws.Id, pane?.Id,
+                pane is null ? ws.Name : $"{ws.Name} › {pane.Label}");
             if (_settings.FlashTaskbar && WindowHandle is var hwnd && hwnd != IntPtr.Zero) Win32.FlashTaskbar(hwnd);
         }
     }
@@ -991,14 +994,45 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         return true;
     }
 
-    private static bool Paste(PaneSession? pane)
+    private bool Paste(PaneSession? pane)
     {
         if (pane is null) return false;
         string text;
         try { text = Clipboard.GetText(); } catch { return false; }
         if (string.IsNullOrEmpty(text)) return true;
-        pane.SendText(text.Replace("\r\n", "\r").Replace('\n', '\r'));
+        // Without bracketed paste every line break is an Enter, and copied text can hide one.
+        if (!pane.BracketedPaste && _settings.WarnMultilinePaste && PasteText.RunsLines(text))
+        {
+            // Asked after the key or click is handled: a modal loop inside a terminal input hook re-enters it.
+            _window.Dispatcher.BeginInvoke(() =>
+            {
+                var ok = ConfirmPaste(text);
+                if (FindPane(pane.Id).Pane is not { } still) return; // closed while the dialog was open
+                if (ok) still.Paste(text);
+                still.FocusTerminal();
+            });
+            return true;
+        }
+        pane.Paste(text);
         return true;
+    }
+
+    private bool ConfirmPaste(string text)
+    {
+        const int MaxShown = 6, MaxWidth = 100;
+        var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var count = lines.Length - (lines[^1].Length == 0 ? 1 : 0); // a trailing break doesn't add a line
+        var shown = lines.Take(MaxShown).Select(l =>
+        {
+            var clean = PasteText.Prepare(l, bracketed: false);
+            return clean.Length > MaxWidth ? clean[..MaxWidth] + "…" : clean;
+        });
+        var preview = string.Join("\n", shown) + (lines.Length > MaxShown ? "\n…" : "");
+        return ConfirmDialog.Ask(_window,
+            count == 1 ? "Paste and run this line?" : $"Paste and run {count} lines?",
+            "The shell runs each line as it arrives. Check it's what you meant to copy:\n\n" + preview
+            + "\n\nSettings › General turns this question off.",
+            "_Paste");
     }
 
     /// <summary>

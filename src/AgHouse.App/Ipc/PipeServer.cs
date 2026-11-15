@@ -14,6 +14,14 @@ public sealed class PipeServer(string pipeName, Func<RpcRequest, Task<RpcRespons
 {
     private readonly CancellationTokenSource _cts = new();
 
+    /// <summary>Connections served at once. More wait for a free slot instead of each getting a task and buffers.</summary>
+    public const int MaxConnections = 32;
+
+    /// <summary>Longest request line, in chars. send-text of a big file still fits; an endless line doesn't eat memory.</summary>
+    public const int MaxLineLength = 4 * 1024 * 1024;
+
+    private readonly SemaphoreSlim _slots = new(MaxConnections, MaxConnections);
+
     public void Start() => _ = Task.Run(AcceptLoopAsync);
 
     private async Task AcceptLoopAsync()
@@ -21,15 +29,23 @@ public sealed class PipeServer(string pipeName, Func<RpcRequest, Task<RpcRespons
         while (!_cts.IsCancellationRequested)
         {
             NamedPipeServerStream? pipe = null;
+            var slot = false;
             try
             {
+                await _slots.WaitAsync(_cts.Token).ConfigureAwait(false);
+                slot = true;
                 pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut,
                     NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
                 await pipe.WaitForConnectionAsync(_cts.Token).ConfigureAwait(false);
                 var connected = pipe;
                 pipe = null;
-                _ = Task.Run(() => ServeAsync(connected));
+                slot = false; // ServeAsync releases it
+                _ = Task.Run(async () =>
+                {
+                    try { await ServeAsync(connected).ConfigureAwait(false); }
+                    finally { _slots.Release(); }
+                });
             }
             catch (OperationCanceledException) { break; }
             catch (IOException ex)
@@ -40,6 +56,7 @@ public sealed class PipeServer(string pipeName, Func<RpcRequest, Task<RpcRespons
             finally
             {
                 pipe?.Dispose();
+                if (slot) _slots.Release();
             }
         }
     }
@@ -54,7 +71,14 @@ public sealed class PipeServer(string pipeName, Func<RpcRequest, Task<RpcRespons
         {
             while (!_cts.IsCancellationRequested)
             {
-                var line = await reader.ReadLineAsync(_cts.Token).ConfigureAwait(false);
+                string? line;
+                try { line = await ReadLineAsync(reader, MaxLineLength, _cts.Token).ConfigureAwait(false); }
+                catch (InvalidDataException ex)
+                {
+                    // The rest of the stream can't be framed any more: answer once and hang up.
+                    await writer.WriteLineAsync(RpcJson.Serialize(RpcResponse.Failure(0, ex.Message))).ConfigureAwait(false);
+                    break;
+                }
                 if (line is null) break;
                 if (line.Length == 0) continue;
 
@@ -75,6 +99,31 @@ public sealed class PipeServer(string pipeName, Func<RpcRequest, Task<RpcRespons
         }
         catch (OperationCanceledException) { }
         catch (IOException) { /* client went away */ }
+    }
+
+    /// <summary>
+    /// Like <see cref="StreamReader.ReadLineAsync(CancellationToken)"/> (LF or CRLF ends a line; null at
+    /// the end of the stream), but a line longer than <paramref name="max"/> chars throws
+    /// <see cref="InvalidDataException"/> instead of growing without bound.
+    /// </summary>
+    internal static async Task<string?> ReadLineAsync(StreamReader reader, int max, CancellationToken ct)
+    {
+        var sb = new StringBuilder();
+        var one = new char[1];
+        while (true)
+        {
+            // StreamReader buffers, so reading one char at a time doesn't mean one pipe read per char.
+            var n = await reader.ReadAsync(one.AsMemory(), ct).ConfigureAwait(false);
+            if (n == 0) return sb.Length > 0 ? sb.ToString() : null;
+            var c = one[0];
+            if (c == '\n')
+            {
+                if (sb.Length > 0 && sb[^1] == '\r') sb.Length--;
+                return sb.ToString();
+            }
+            if (sb.Length >= max) throw new InvalidDataException($"Request longer than {max} characters.");
+            sb.Append(c);
+        }
     }
 
     public void Dispose() => _cts.Cancel();

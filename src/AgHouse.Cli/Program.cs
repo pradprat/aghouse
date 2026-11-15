@@ -248,7 +248,7 @@ internal static class Program
             "Connect Claude Code (~/.claude/settings.json; install asks first)",
             c => Task.FromResult((c.Pos(0), c.Pos(1)) switch
             {
-                ("print", "claude") => Print(ClaudeHooksSnippet),
+                ("print", "claude") => Print(ClaudeHooksSnippet.Replace("\"aghouse claude-hook\"", JsonSerializer.Serialize(AgHouse.Core.ClaudeHooks.Command, new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))),
                 ("install", "claude") => InstallClaudeHooks(c.Has("yes")),
                 ("status", "claude") => ClaudeHooksStatus(),
                 _ => Fail("Usage: aghouse hooks print|install|status claude"),

@@ -35,7 +35,9 @@ public sealed partial class OscParser
     private const char C1St = '\x9c';
     private const int MaxOscLength = 16 * 1024;
 
-    private enum State { Ground, Escape, Osc, OscEscape, SkipString, SkipStringEscape }
+    private const char C1Csi = '\x9b';
+
+    private enum State { Ground, Escape, Osc, OscEscape, SkipString, SkipStringEscape, Csi }
 
     private State _state = State.Ground;
     private readonly StringBuilder _osc = new();
@@ -43,6 +45,21 @@ public sealed partial class OscParser
 
     // OSC 99 (kitty) notifications can be chunked; keyed by the 'i' id.
     private readonly Dictionary<string, (string? Title, string? Body)> _kittyPending = new();
+
+    /// <summary>Unfinished OSC 99 notifications kept at once. Each is also capped at <see cref="MaxOscLength"/>.</summary>
+    public const int MaxKittyPending = 8;
+
+    // CSI parameters and intermediates, only kept to spot DECSET/DECRST 2004 (bracketed paste).
+    private readonly StringBuilder _csi = new();
+    private const int MaxCsiLength = 32;
+
+    private volatile bool _bracketedPaste;
+
+    /// <summary>
+    /// Whether the program in the pane asked for bracketed paste (CSI ? 2004 h) and hasn't turned it
+    /// off (CSI ? 2004 l). Read from the UI thread while the reader thread feeds the parser.
+    /// </summary>
+    public bool BracketedPaste => _bracketedPaste;
 
     public void Feed(ReadOnlySpan<char> data, List<TerminalEvent> events)
     {
@@ -60,12 +77,14 @@ public sealed partial class OscParser
                 if (c == Esc) _state = State.Escape;
                 else if (c == Bel) events.Add(BellEvent.Instance);
                 else if (c == C1Osc) BeginOsc();
+                else if (c == C1Csi) BeginCsi();
                 break;
 
             case State.Escape:
                 switch (c)
                 {
                     case ']': BeginOsc(); break;
+                    case '[': BeginCsi(); break;
                     // DCS, SOS, PM, APC: opaque strings terminated by ST. A BEL inside them is not a bell.
                     case 'P' or 'X' or '^' or '_': _state = State.SkipString; break;
                     case Esc: break; // ESC ESC: stay
@@ -98,6 +117,30 @@ public sealed partial class OscParser
             case State.SkipStringEscape:
                 _state = c == '\\' ? State.Ground : c == Esc ? State.SkipStringEscape : State.SkipString;
                 break;
+
+            case State.Csi:
+                if (c is >= '\x40' and <= '\x7e') { DispatchCsi(c); _state = State.Ground; }
+                else if (c is >= '\x20' and <= '\x3f') { if (_csi.Length < MaxCsiLength) _csi.Append(c); }
+                else if (c == Esc) _state = State.Escape; // aborted: the ESC starts a new sequence
+                else if (c == Bel) { events.Add(BellEvent.Instance); _state = State.Ground; } // not valid inside CSI
+                else if (c >= ' ') _state = State.Ground; // anything else ends a malformed CSI
+                break;
+        }
+    }
+
+    private void BeginCsi()
+    {
+        _csi.Clear();
+        _state = State.Csi;
+    }
+
+    private void DispatchCsi(char final)
+    {
+        if (final is not ('h' or 'l') || _csi.Length == 0 || _csi[0] != '?') return;
+        // CSI ? 1 ; 2004 h sets several private modes at once.
+        foreach (var mode in _csi.ToString(1, _csi.Length - 1).Split(';'))
+        {
+            if (mode == "2004") _bracketedPaste = final == 'h';
         }
     }
 
@@ -207,13 +250,22 @@ public sealed partial class OscParser
             catch (FormatException) { return; }
         }
 
+        if (part is not ("title" or "body")) return; // queries / unknown parts
+
         _kittyPending.TryGetValue(id, out var acc);
         if (part == "title") acc.Title = (acc.Title ?? "") + payload;
-        else if (part == "body") acc.Body = (acc.Body ?? "") + payload;
-        else return; // queries / unknown parts
+        else acc.Body = (acc.Body ?? "") + payload;
+
+        // Untrusted output can send unfinished chunks forever, under one id or many: cap both.
+        if ((acc.Title?.Length ?? 0) + (acc.Body?.Length ?? 0) > MaxOscLength)
+        {
+            _kittyPending.Remove(id);
+            return;
+        }
 
         if (!done)
         {
+            if (!_kittyPending.ContainsKey(id) && _kittyPending.Count >= MaxKittyPending) return;
             _kittyPending[id] = acc;
             return;
         }

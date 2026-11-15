@@ -61,7 +61,7 @@ public class ClaudeHooksTests : IDisposable
         var root = JsonNode.Parse("""
             { "hooks": { "Notification": [ { "hooks": [ { "type": "command", "command": "aghouse claude-hook" } ] } ] } }
             """)!.AsObject();
-        var status = ClaudeHooks.Inspect(root);
+        var status = ClaudeHooks.Inspect(root, ClaudeHooks.BareCommand);
         Assert.Equal(HookState.Partial, status.State);
         Assert.Equal(["Stop", "UserPromptSubmit", "PostToolUse", "SessionStart"], status.Missing);
     }

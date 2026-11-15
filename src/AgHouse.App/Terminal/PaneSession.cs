@@ -354,6 +354,21 @@ public sealed class PaneSession : ObservableObject, IDisposable
 
     public void SendText(string text) => Pty.WriteToTerm(text);
 
+    /// <summary>The program in the pane turned on bracketed paste, so pasted line breaks don't run anything.</summary>
+    public bool BracketedPaste => _parser.BracketedPaste;
+
+    /// <summary>Clipboard text, without its control characters, bracketed when the program asked for that.</summary>
+    public void Paste(string text) => SendText(PasteText.Prepare(text, BracketedPaste));
+
+    /// <summary>
+    /// An agent has reported from this pane (a Claude Code hook set its status or asked for the user).
+    /// Other panes may not type into it unless the user allows that (AllowInputToAgentPanes).
+    /// </summary>
+    public bool AgentSeen { get; set; }
+
+    /// <summary>The secret in this pane's AGHOUSE_PANE_TOKEN: a request carrying it comes from this pane.</summary>
+    public string Token { get; init; } = "";
+
     public string? GetSelectedText()
     {
         try { return Control.Terminal.GetSelectedText(); }

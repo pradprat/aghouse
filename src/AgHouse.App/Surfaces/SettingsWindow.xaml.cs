@@ -39,7 +39,7 @@ public partial class SettingsWindow : Window
             ProblemBar.Visibility = Visibility.Visible;
             ProblemTitle.Text = problem.Summary;
             ProblemDetail.Text = $"{problem.Detail}\naghouse is running on default settings. Fix the file and restart aghouse to change settings here.";
-            foreach (var control in new Control[] { DefaultShell, CtrlDSplits, RestoreSession, ThemeChoice, FontChoice, SizeChoice, Toasts, FlashTaskbar })
+            foreach (var control in new Control[] { DefaultShell, CtrlDSplits, RestoreSession, WarnMultilinePaste, ThemeChoice, FontChoice, SizeChoice, Toasts, FlashTaskbar })
             {
                 control.IsEnabled = false;
             }
@@ -82,6 +82,7 @@ public partial class SettingsWindow : Window
         SizeChoice.SelectedItem = s.FontSize;
         Toasts.IsChecked = s.Toasts;
         FlashTaskbar.IsChecked = s.FlashTaskbar;
+        WarnMultilinePaste.IsChecked = s.WarnMultilinePaste;
     }
 
     public void ShowPage(SettingsPage page) => Nav.SelectedIndex = (int)page;
@@ -114,6 +115,7 @@ public partial class SettingsWindow : Window
         if (SizeChoice.SelectedItem is int size) s.FontSize = size;
         s.Toasts = Toasts.IsChecked == true;
         s.FlashTaskbar = FlashTaskbar.IsChecked == true;
+        s.WarnMultilinePaste = WarnMultilinePaste.IsChecked == true;
 
         _applying = true;
         try { _controller.ApplySettings(s); }
