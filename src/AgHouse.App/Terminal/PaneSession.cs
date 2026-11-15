@@ -420,8 +420,24 @@ public sealed class PaneSession : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        try { Pty.CloseStdinToApp(); } catch { }
-        try { Pty.StopExternalTermOnly(); } catch { }
-        try { if (_process is { HasExited: false }) _process.Kill(true); } catch { }
+        // Detach the PTY from the terminal control first. The control's window outlives this call (it is
+        // parked, not destroyed, when it leaves the visual tree), and a later WM_SETFOCUS/WM_KILLFOCUS
+        // makes it report focus in/out to its connection. With the PTY already stopped, that write throws
+        // inside a native window procedure, which nothing can catch: it took the whole app down on close.
+        try { Control.DisconnectConPTYTerm(); } catch { }
+
+        // Ending the programs is slow (an agent runs a tree of 20+ processes) and nothing on screen waits
+        // for it, so it runs off the UI thread: closing a pane running Claude Code froze the window.
+        // The snapshot is taken before the shell dies, so its children are still linked to it.
+        var shellPid = _process is ProcessFactory.WrappedProcess p ? p.Pid : (int?)null;
+        Ended = Task.Run(() =>
+        {
+            try { Pty.CloseStdinToApp(); } catch { }
+            try { if (shellPid is { } pid) ProcessTree.KillTree(pid); } catch (Exception ex) { Log.Write($"kill {Id}: {ex.Message}"); }
+            try { Pty.StopExternalTermOnly(); } catch { } // the shell, if the tree kill couldn't reach it
+        });
     }
+
+    /// <summary>Completes once <see cref="Dispose"/> has ended the shell and everything it started.</summary>
+    public Task Ended { get; private set; } = Task.CompletedTask;
 }

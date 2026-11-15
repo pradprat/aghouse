@@ -1,11 +1,13 @@
 using System.IO;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace AgHouse.App.Interop;
 
 /// <summary>
 /// Finds what a pane's shell is running, so closing a pane can warn before it kills an agent or a build.
-/// Reads one Toolhelp snapshot of the process table (no handles opened on other processes).
+/// Reads one Toolhelp snapshot of the process table (no handles opened on other processes, except
+/// by <see cref="KillTree"/> on the tree it ends).
 /// </summary>
 internal static partial class ProcessTree
 {
@@ -72,6 +74,39 @@ internal static partial class ProcessTree
         return result;
     }
 
+    /// <summary>
+    /// Ends <paramref name="rootPid"/> and every process below it, parents first so nothing new gets
+    /// spawned meanwhile. One snapshot of the process table, and handles only on the tree itself: .NET's
+    /// Process.Kill(entireProcessTree) re-reads every process on the machine for each node it visits,
+    /// which took ~300 ms for an agent's tree of 25. A "child" that started before its parent is a pid
+    /// that was reused after the real parent died, so it and everything below it is left alone.
+    /// </summary>
+    public static void KillTree(int rootPid)
+    {
+        var children = Snapshot().ToLookup(p => p.ParentPid, p => p.Pid);
+        using var root = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)rootPid);
+        if (root.IsInvalid || !TryCreationTime(root, out var rootCreated)) return;
+        TerminateProcess(root, 1);
+
+        var queue = new Queue<(int Pid, long Created)>([(rootPid, rootCreated)]);
+        var seen = new HashSet<int> { rootPid };
+        while (queue.Count > 0)
+        {
+            var (parent, parentCreated) = queue.Dequeue();
+            foreach (var pid in children[parent])
+            {
+                if (!seen.Add(pid)) continue;
+                using var child = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)pid);
+                if (child.IsInvalid || !TryCreationTime(child, out var created) || created < parentCreated) continue;
+                TerminateProcess(child, 1);
+                queue.Enqueue((pid, created));
+            }
+        }
+    }
+
+    private static bool TryCreationTime(SafeProcessHandle process, out long created) =>
+        GetProcessTimes(process, out created, out _, out _, out _);
+
     private readonly record struct Entry(int Pid, int ParentPid, string Name);
 
     private static List<Entry> Snapshot()
@@ -129,4 +164,18 @@ internal static partial class ProcessTree
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool CloseHandle(IntPtr hObject);
+
+    private const uint PROCESS_TERMINATE = 0x0001;
+    private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern SafeProcessHandle OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool TerminateProcess(SafeProcessHandle hProcess, uint uExitCode);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetProcessTimes(SafeProcessHandle hProcess, out long creation, out long exit, out long kernel, out long user);
 }

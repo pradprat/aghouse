@@ -548,7 +548,9 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     private static void DisposePane(PaneSession pane)
     {
         pane.Dispose();
-        ToastService.ClearFor(pane.Id);
+        // A WinRT call into the notification platform: off the UI thread, it has no reason to block a close.
+        var id = pane.Id;
+        Task.Run(() => ToastService.ClearFor(id));
     }
 
     public void FocusPane(string paneId)
@@ -1193,6 +1195,9 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         _prTimer.Stop();
         SaveSession();
         _shortcuts.Dispose();
-        foreach (var pane in Workspaces.SelectMany(w => w.Panes.Values).ToList()) pane.Dispose();
+        var panes = Workspaces.SelectMany(w => w.Panes.Values).ToList();
+        foreach (var pane in panes) pane.Dispose();
+        // Panes end their programs in the background; don't let the process exit before they have.
+        try { Task.WaitAll(panes.Select(p => p.Ended).ToArray(), TimeSpan.FromSeconds(3)); } catch { }
     }
 }
