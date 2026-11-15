@@ -193,7 +193,7 @@ These are fixed because the terminal is a native child window with its own rende
 - The terminal palette follows the `theme` setting (`system` / `dark` / `light`) live. Changing it in Settings, or switching Windows between light and dark while it's `system`, recolours every pane and its frame without a restart.
 
 ### Logo colours
-- **Sky** (`logo-sky`), **Deep Blue** (`logo-deep-blue`), **Amber** (`logo-amber`): used only in the logo and icon assets (`assets/`). The amber dot is the logo's picture of attention. Inside the app, attention uses the system accent.
+- **Sky** (`logo-sky`), **Deep Blue** (`logo-deep-blue`), **Amber** (`logo-amber`): used only in the logo and icon assets (`assets/`). The logo is a prompt, `>_`, on a sky-to-deep-blue tile; its amber cursor is the logo's picture of attention, the agent waiting for you. Inside the app, attention uses the system accent.
 
 ### Named Rules
 **The Borrowed Colour Rule.** The chrome has no colours of its own. Every surface, text and stroke colour in the UI is a Fluent theme brush, and the only chromatic colour is the user's accent. A hex value in UI code is a defect, except in the terminal palettes. The single exception is semantic: the warning glyph for a broken settings.json uses Fluent's `SystemFillColorCautionBrush`, exactly as a Windows InfoBar would.
