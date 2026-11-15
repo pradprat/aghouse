@@ -71,3 +71,13 @@ if (-not $NoInstaller) {
     $setup = Join-Path $artifacts "aghouse-$version-setup-x64.exe"
     Write-Host ("Installer: {0} ({1:N0} MB)" -f $setup, ((Get-Item $setup).Length / 1MB)) -ForegroundColor Green
 }
+
+# The builds aren't code-signed, so publish checksums with every release (attach SHA256SUMS.txt).
+$sums = Join-Path $artifacts 'SHA256SUMS.txt'
+$built = @(Get-ChildItem $artifacts -File | Where-Object { $_.Name -like "aghouse-$version-*" })
+if ($built.Count -gt 0) {
+    $built | Sort-Object Name | ForEach-Object {
+        '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
+    } | Set-Content -Path $sums -Encoding ascii
+    Write-Host "Checksums: $sums" -ForegroundColor Green
+}

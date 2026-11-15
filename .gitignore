@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Design-tool cache
 .impeccable/
+
+# Local agent tool config (holds machine paths)
+.codex/
