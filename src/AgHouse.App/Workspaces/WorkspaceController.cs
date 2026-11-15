@@ -966,7 +966,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         if (!fromPalette && !_window.IsActive) return false;
         // Let a rename box (workspace or tab) keep its keys.
         if ((Workspaces.Any(w => w.IsRenaming) || System.Windows.Input.Keyboard.FocusedElement is TextBox)
-            && s.Action is AppAction.Copy or AppAction.Paste or AppAction.PasteImage) return false;
+            && s.Action is AppAction.Copy or AppAction.Paste or AppAction.PasteAny) return false;
 
         switch (s.Action)
         {
@@ -987,7 +987,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             case AppAction.RenameWorkspace: if (_selected is not null) _selected.IsRenaming = true; return true;
             case AppAction.Copy: return CopySelection(_selected?.ActivePane);
             case AppAction.Paste: return Paste(_selected?.ActivePane);
-            case AppAction.PasteImage: return PasteImage(_selected?.ActivePane);
+            case AppAction.PasteAny: return PasteAny(_selected?.ActivePane);
             case AppAction.CloseWorkspace: if (_selected is not null) RequestCloseWorkspace(_selected); return true;
             case AppAction.ZoomPane: ToggleZoom(); return true;
             case AppAction.Find: OpenFind(); return true;
@@ -1049,6 +1049,11 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         if (pane is null) return false;
         string text;
         try { text = Clipboard.GetText(); } catch { return false; }
+        return Paste(pane, text);
+    }
+
+    private bool Paste(PaneSession pane, string text)
+    {
         if (string.IsNullOrEmpty(text)) return true;
         // Without bracketed paste every line break is an Enter, and copied text can hide one.
         if (!pane.BracketedPaste && _settings.WarnMultilinePaste && PasteText.RunsLines(text))
@@ -1086,20 +1091,38 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Ctrl+V with an image (and no text) on the clipboard: send Alt+V (ESC v), which is Claude Code's
-    /// image-paste key on Windows. Claude reads the image from the clipboard itself. Anything else
-    /// returns false so Ctrl+V reaches the terminal unchanged (shells, vim's block select, ...).
+    /// Plain Ctrl+V, which Windows Terminal also binds to paste. Programs like Claude Code count on
+    /// the terminal for it: Claude ignores a bare Ctrl+V on Windows. Text pastes as Ctrl+Shift+V
+    /// does, copied files as their paths, and an image as Alt+V (ESC v), Claude's image-paste key
+    /// on Windows; Claude then reads the image from the clipboard itself. With nothing on the
+    /// clipboard, Ctrl+V reaches the terminal unchanged.
     /// </summary>
-    private static bool PasteImage(PaneSession? pane)
+    private bool PasteAny(PaneSession? pane)
     {
         if (pane is null) return false;
+        bool hasImage;
+        string? text = null;
+        List<string?>? files = null;
         try
         {
-            if (Clipboard.ContainsText() || !(Clipboard.ContainsImage() || Clipboard.ContainsData(DataFormats.Dib))) return false;
+            hasImage = Clipboard.ContainsImage() || Clipboard.ContainsData(DataFormats.Dib);
+            if (Clipboard.ContainsText()) text = Clipboard.GetText();
+            if (Clipboard.ContainsFileDropList()) files = Clipboard.GetFileDropList().Cast<string?>().ToList();
         }
-        catch { return false; }
-        pane.SendText("\u001bv");
-        return true;
+        catch (Exception ex)
+        {
+            // Another program has the clipboard open. A raw ^V would do nothing useful, so drop it.
+            Log.Write($"Ctrl+V: clipboard unavailable: {ex.Message}");
+            return true;
+        }
+
+        switch (PasteText.Choose(hasImage, files is { Count: > 0 }, text))
+        {
+            case ClipboardPaste.Image: pane.SendText("\u001bv"); return true;
+            case ClipboardPaste.Text: return Paste(pane, text!);
+            case ClipboardPaste.Files: return Paste(pane, PasteText.FilePaths(files!));
+            default: return false;
+        }
     }
 
     // ───────────────────────────── Ports ─────────────────────────────

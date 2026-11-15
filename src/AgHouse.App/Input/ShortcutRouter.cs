@@ -23,8 +23,11 @@ public enum AppAction
     RenameWorkspace,
     Copy,
     Paste,
-    /// <summary>Plain Ctrl+V. Only acts when the clipboard holds an image; otherwise the key goes to the terminal.</summary>
-    PasteImage,
+    /// <summary>
+    /// Plain Ctrl+V: pastes text or copied files' paths, or sends Alt+V for an image (Claude Code's
+    /// image key). With nothing on the clipboard the key goes to the terminal.
+    /// </summary>
+    PasteAny,
     CloseWorkspace,
     ZoomPane,
     Find,
@@ -197,7 +200,7 @@ public sealed class ShortcutRouter : IDisposable
             if (vk is Win32.VK_OEM_MINUS or Win32.VK_SUBTRACT) return new Shortcut(AppAction.FontSmaller);
             if (vk is '0' or Win32.VK_NUMPAD0) return new Shortcut(AppAction.FontReset);
             if (vk == Win32.VK_OEM_COMMA) return new Shortcut(AppAction.Settings);
-            if (vk == 'V') return new Shortcut(AppAction.PasteImage);
+            if (vk == 'V') return new Shortcut(AppAction.PasteAny);
         }
 
         return null;

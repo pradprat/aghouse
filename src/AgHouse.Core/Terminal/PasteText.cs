@@ -43,6 +43,50 @@ public static class PasteText
     /// </summary>
     public static bool RunsLines(string text) => text.AsSpan().IndexOfAny('\r', '\n') >= 0;
 
+    /// <summary>
+    /// What plain Ctrl+V pastes. An image wins when the only text beside it is a single-line link,
+    /// which a browser's "Copy image" can add; otherwise text wins, as in Windows Terminal (cells
+    /// copied from Excel bring a picture of themselves too). Files copied in Explorer paste as paths.
+    /// </summary>
+    public static ClipboardPaste Choose(bool hasImage, bool hasFiles, string? text)
+    {
+        var hasText = !string.IsNullOrWhiteSpace(text);
+        if (hasImage && (!hasText || IsLink(text!))) return ClipboardPaste.Image;
+        if (hasText) return ClipboardPaste.Text;
+        if (hasFiles) return ClipboardPaste.Files;
+        return ClipboardPaste.None;
+    }
+
+    /// <summary>
+    /// Copied files as typed text, the way Windows Terminal pastes them: one path after another,
+    /// quoted when a path has a space. Claude Code attaches an image whose path is pasted.
+    /// </summary>
+    public static string FilePaths(IEnumerable<string?> paths) =>
+        string.Join(" ", paths.Where(p => !string.IsNullOrEmpty(p)).Select(p => p!.Contains(' ') ? $"\"{p}\"" : p));
+
+    private static bool IsLink(string text)
+    {
+        var t = text.Trim();
+        return !RunsLines(t)
+            && (t.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                || t.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                || t.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
+                || t.StartsWith("file:", StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>C0 (including ESC and NUL), DEL and C1 controls.</summary>
     private static bool IsControl(char c) => c < ' ' || c is >= '\u007f' and <= '\u009f';
+}
+
+/// <summary>What plain Ctrl+V does with the clipboard (<see cref="PasteText.Choose"/>).</summary>
+public enum ClipboardPaste
+{
+    /// <summary>Nothing to paste: the key goes to the terminal.</summary>
+    None,
+    /// <summary>Send Alt+V, Claude Code's image-paste key on Windows; Claude reads the image itself.</summary>
+    Image,
+    /// <summary>Paste the copied files' paths.</summary>
+    Files,
+    /// <summary>Paste the text, as Ctrl+Shift+V does.</summary>
+    Text,
 }

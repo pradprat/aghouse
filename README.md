@@ -69,7 +69,7 @@ Pass `-NoInstaller` or `-NoZip` to skip either one. The version number comes fro
 | Ctrl+Alt+W | Close workspace |
 | Ctrl+, | Settings |
 | Ctrl+Shift+C / Ctrl+Shift+V | Copy / paste |
-| Ctrl+V with an image copied | Paste the image into Claude Code (sent as Alt+V). With text copied, Ctrl+V goes to the terminal as before |
+| Ctrl+V | Paste, as in Windows Terminal: text, copied files as their paths, or an image into Claude Code (sent as Alt+V, its image key) |
 | Right click | Copy the selection, or paste if nothing is selected |
 
 New workspaces are named after their folder ("aghouse", then "aghouse (2)"); double-click a name to rename it, and drag a row to reorder (or use Move up / Move down in its menu). The window remembers its size, position and sidebar width. When a workspace is split, each pane gets a slim header with a **✕** button that closes the pane. The header names the pane by what it is running (an agent's current task, `vim`), else its folder, else its shell, and numbers names that would otherwise repeat. A lone pane shows a header only while it needs you. Typing `exit` in a pane also closes it.
