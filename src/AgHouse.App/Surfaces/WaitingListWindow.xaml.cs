@@ -27,6 +27,9 @@ public sealed class WaitingRow
     public string Age => FormatAge(DateTime.UtcNow - At);
     public string AgeDetail => (Waiting ? "Asked at " : "Handled at ") + At.ToLocalTime().ToString("t");
 
+    /// <summary>What a screen reader says for the row: "api-server › tests, Needs you · Claude needs your permission, 4 min".</summary>
+    public override string ToString() => $"{Where}, {Prefix}{MessageText}, {Age}";
+
     /// <summary>"now", "4 min", "2 h", "3 d": short enough for the row's right edge.</summary>
     public static string FormatAge(TimeSpan age) => age.TotalMinutes switch
     {

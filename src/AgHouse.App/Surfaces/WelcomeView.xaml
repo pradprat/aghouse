@@ -16,8 +16,11 @@
                        Text="Each workspace is a folder with its own split panes and tabs. When an agent needs you, its pane says “Needs you” and the sidebar shows which workspace it's in." />
 
             <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                <Button x:Name="OpenHere" Click="OpenHere_Click" IsDefault="True" Padding="14,6" Margin="0,0,8,0" />
-                <Button Content="Choose a folder…" Click="ChooseFolder_Click" Padding="14,6" />
+                <!-- The lead action is the one stock (filled) button; the other is a ghost beside it. Not the accent:
+                     that marks only selection and "Needs you". -->
+                <Button x:Name="OpenHere" Click="OpenHere_Click" IsDefault="True" Padding="14,6" Margin="0,0,4,0" />
+                <Button Content="Choose a folder…" Click="ChooseFolder_Click" Padding="14,6"
+                        Background="Transparent" BorderThickness="0" />
             </StackPanel>
 
             <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" Margin="0,24,0,0" Padding="0,16,0,0">

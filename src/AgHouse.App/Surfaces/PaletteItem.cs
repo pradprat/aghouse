@@ -24,6 +24,13 @@ public sealed class PaletteItem
     public string DetailText => string.IsNullOrEmpty(Detail) ? "" : "   " + Detail;
 
     /// <summary>
+    /// What a screen reader says for the row (a ListBoxItem's UI Automation name is its item's ToString):
+    /// "Needs you · api-server › tests, Claude needs your permission" or "New workspace, Ctrl+Shift+N".
+    /// </summary>
+    public override string ToString() =>
+        string.Join(", ", new[] { Prefix + Title, Detail, Gesture }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    /// <summary>
     /// How well <paramref name="query"/> matches: every word must appear somewhere. Matches at the
     /// start of the title rank highest, then at the start of a word, then anywhere. -1 = no match.
     /// </summary>
