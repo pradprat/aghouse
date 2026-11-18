@@ -128,6 +128,51 @@ public sealed class PaneTree
         return FirstLeaf(sibling).PaneId;
     }
 
+    /// <summary>
+    /// Moves pane <paramref name="paneId"/> to the <paramref name="side"/> of <paramref name="targetId"/>
+    /// (dragging a pane by its header). The space it leaves goes to its sibling, as on close; the target
+    /// is split in half. False, with the tree untouched, when there's nothing to do.
+    /// </summary>
+    public bool Move(string paneId, string targetId, Direction side)
+    {
+        if (paneId == targetId) return false;
+        var leaf = Find(paneId);
+        var target = Find(targetId);
+        if (leaf is null || target is null) return false;
+
+        // Already there: the two are siblings, split the same way, in that order.
+        if (leaf.Parent is { } p && ReferenceEquals(p, target.Parent))
+        {
+            var orientation = side is Direction.Left or Direction.Right ? SplitOrientation.Columns : SplitOrientation.Rows;
+            var leafFirst = ReferenceEquals(p.First, leaf);
+            if (p.Orientation == orientation && leafFirst == (side is Direction.Left or Direction.Up)) return false;
+        }
+
+        Remove(paneId);
+        Split(targetId, side, paneId);
+        return true;
+    }
+
+    /// <summary>Two panes trade places; every split keeps its ratio. False when there's nothing to do.</summary>
+    public bool Swap(string a, string b)
+    {
+        if (a == b) return false;
+        var leafA = Find(a);
+        var leafB = Find(b);
+        if (leafA?.Parent is not { } parentA || leafB?.Parent is not { } parentB) return false;
+
+        if (ReferenceEquals(parentA, parentB))
+        {
+            var aFirst = ReferenceEquals(parentA.First, leafA);
+            parentA.First = aFirst ? leafB : leafA;
+            parentA.Second = aFirst ? leafA : leafB;
+            return true;
+        }
+        Replace(parentA, leafA, leafB);
+        Replace(parentB, leafB, leafA);
+        return true;
+    }
+
     /// <summary>Normalized (0..1) rectangles of each pane.</summary>
     public Dictionary<string, NRect> Layout()
     {

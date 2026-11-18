@@ -85,7 +85,9 @@ public sealed class WorkspaceView : Grid
         public void Place(int side, FrameworkElement element)
         {
             if (ReferenceEquals(_sides[side], element) && ReferenceEquals(element.Parent, Grid)) return;
-            if (_sides[side] is { } old && ReferenceEquals(old.Parent, Grid)) Grid.Children.Remove(old);
+            // Not when the old element was just placed on the other side (two siblings swapped).
+            if (_sides[side] is { } old && ReferenceEquals(old.Parent, Grid) && !ReferenceEquals(old, _sides[1 - side]))
+                Grid.Children.Remove(old);
             Detach(element);
             // Both, so an element that moved from a column split to a row split keeps no stale position.
             var columns = orientation == SplitOrientation.Columns;

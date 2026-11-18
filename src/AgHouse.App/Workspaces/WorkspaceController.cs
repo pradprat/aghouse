@@ -34,6 +34,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     private readonly SettingsProblem? _settingsProblem;
     private readonly ToastService _toasts;
     private readonly ShortcutRouter _shortcuts;
+    private readonly PaneDrag _paneDrag;
     private readonly DispatcherTimer _saveTimer;
     private readonly DispatcherTimer _portTimer;
     private readonly DispatcherTimer _prTimer;
@@ -64,6 +65,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         _scheme = Themes.Resolve(_light ? settings.LightTheme : settings.DarkTheme, _light);
         AppTheme.Apply(_scheme);
         _fontFamily = ResolveFont(settings.FontFamily);
+        _paneDrag = new PaneDrag(MovePane);
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); SaveSession(); };
@@ -340,6 +342,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         slot.CloseOthersRequested += p => CloseOtherTabs(p.Id);
         slot.NewTabRequested += s => { if (s.ActiveTab is { } t) NewTab(t.Id); };
         slot.DuplicateRequested += p => NewTab(p.Id);
+        slot.HeaderDragStarted += s => _paneDrag.Start(ws, s);
         slot.Renamed += _ => { UpdateLabels(ws); ScheduleSave(); };
         slot.UnzoomRequested += _ => { if (ws.ZoomedSlotId is not null) ToggleZoom(ws); };
         ws.Slots[slot.Id] = slot;
@@ -656,7 +659,11 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         ws.View.Render(ws.Tree, id => ws.Slots[id].Frame, ws.ZoomedSlotId);
         // Every pane has a header; only split panes get its ✕ and a focus state.
         var split = ws.Slots.Count > 1;
-        foreach (var slot in ws.Slots.Values) slot.IsSplit = split;
+        foreach (var slot in ws.Slots.Values)
+        {
+            slot.IsSplit = split;
+            slot.AllowDrag = split && ws.ZoomedSlotId is null; // a zoomed pane has nowhere to go
+        }
         UpdateLabels(ws);
         ws.RefreshSummary(); // the zoom note names panes, so labels come first
     }
@@ -676,6 +683,34 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         Render(ws);
         if (pane.Id != ws.ActivePaneId) SetActive(ws, pane.Id);
         if (ReferenceEquals(ws, _selected)) _window.Dispatcher.BeginInvoke(DispatcherPriority.Input, pane.FocusTerminal);
+        return true;
+    }
+
+    /// <summary>
+    /// Moves a pane (slot) to one side of another, or swaps the two: dragging a pane by its header, or
+    /// `aghouse move-pane`. The terminals keep running; only their frames move. False when nothing changed.
+    /// </summary>
+    public bool MovePane(Workspace ws, string slotId, string targetSlotId, PaneDropSide side)
+    {
+        if (!ws.Slots.ContainsKey(slotId) || !ws.Slots.ContainsKey(targetSlotId)) return false;
+        var moved = side switch
+        {
+            PaneDropSide.Swap => ws.Tree.Swap(slotId, targetSlotId),
+            PaneDropSide.Left => ws.Tree.Move(slotId, targetSlotId, Direction.Left),
+            PaneDropSide.Right => ws.Tree.Move(slotId, targetSlotId, Direction.Right),
+            PaneDropSide.Up => ws.Tree.Move(slotId, targetSlotId, Direction.Up),
+            _ => ws.Tree.Move(slotId, targetSlotId, Direction.Down),
+        };
+        if (!moved) return false;
+        Log.Write($"move pane {slotId} {side} {targetSlotId}");
+        ws.ZoomedSlotId = null;
+        Render(ws);
+        // The pane that moved is the one being handled: it keeps (or takes) the focus.
+        if (ws.Slots[slotId].ActiveTab is { } tab)
+        {
+            if (ReferenceEquals(ws, _selected)) FocusPane(tab.Id); else SetActive(ws, tab.Id);
+        }
+        ScheduleSave();
         return true;
     }
 
@@ -881,6 +916,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             foreach (var slot in ws.Slots.Values) slot.Background = background;
             foreach (var pane in ws.Panes.Values) pane.SetAppearance(theme, background, _fontFamily, _settings.FontSize);
         }
+        AppearanceChanged?.Invoke();
     }
 
     /// <summary>The installed fonts a terminal can use well: the monospaced ones.</summary>
@@ -962,7 +998,6 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             pane.HasUnread = false;
             _selected.RefreshSummary();
         }
-        AppearanceChanged?.Invoke();
     }
 
     private void OnToastActivated(string? workspaceId, string? paneId)

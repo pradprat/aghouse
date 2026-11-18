@@ -96,6 +96,7 @@ aghouse new-split [right|down|left|up] [--pane ID]
 aghouse new-tab [--pane ID] [--profile ID] [--cwd DIR]
 aghouse focus-pane <id> | close-pane [id]      # also select-tab / close-tab
 aghouse zoom-pane [id]                          # fill the workspace, or show all again
+aghouse move-pane <left|right|up|down|swap> --to ID [--pane ID]   # like dragging a pane's header
 aghouse rename-pane "build box" | --clear       # also rename-tab
 aghouse restart-pane [id] [--profile cmd] [--cwd DIR]   # a fresh shell in its place; prints the new pane id
 aghouse profiles                                # shells you can open (ids for --profile)

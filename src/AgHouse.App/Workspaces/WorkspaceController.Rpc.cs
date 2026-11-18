@@ -238,6 +238,27 @@ public sealed partial class WorkspaceController
                 return new JsonObject { ["oldPaneId"] = id, ["paneId"] = pane.Id, ["profile"] = pane.Profile.Id };
             }
 
+            case Methods.MovePane:
+            {
+                var id = RequirePane(r.Get("pane"));
+                var to = RequirePane(r.Get("to"));
+                var side = r.Get("side")?.Trim().ToLowerInvariant() switch
+                {
+                    "left" => PaneDropSide.Left,
+                    "right" => PaneDropSide.Right,
+                    "up" or "above" => PaneDropSide.Up,
+                    "down" or "below" => PaneDropSide.Down,
+                    "swap" => PaneDropSide.Swap,
+                    var s => throw new RpcException($"The side is left, right, up, down or swap, not '{s}'."),
+                };
+                var (ws, pane) = FindPane(id);
+                var (toWs, target) = FindPane(to);
+                if (!ReferenceEquals(ws, toWs)) throw new RpcException("Both panes must be in the same workspace.");
+                if (pane!.SlotId == target!.SlotId) throw new RpcException("Those are tabs of the same pane.");
+                var moved = MovePane(ws!, pane.SlotId, target.SlotId, side);
+                return new JsonObject { ["moved"] = moved };
+            }
+
             case Methods.Profiles:
             {
                 var list = new JsonArray();

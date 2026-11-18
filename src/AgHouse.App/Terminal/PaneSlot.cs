@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 
 namespace AgHouse.App.Terminal;
 
@@ -30,6 +31,7 @@ public sealed class PaneSlot
     private readonly Button _newTabButton;
     private readonly TextBlock _fontZoomText;
     private readonly TextBlock _zoomNote;
+    private readonly FrameworkElement _grip;
     private readonly FindBar _findBar;
     private readonly Grid _body;
     private readonly List<PaneSession> _tabs = [];
@@ -117,15 +119,34 @@ public sealed class PaneSlot
         right.Children.Add(_fontZoomText);
         right.Children.Add(_zoomNote);
         right.Children.Add(_closeButton);
-        DockPanel.SetDock(right, Dock.Right);
-        var row = new DockPanel { LastChildFill = true };
-        row.Children.Add(right);
+        _grip = Grip();
+        var row = new PaneHeaderRow();
         row.Children.Add(new Grid { Children = { _singleRow, _tabStrip, _findBar } });
+        row.Children.Add(_grip);
+        row.Children.Add(right);
 
         _header = new Grid { Height = 26, Background = Brushes.Transparent };
         _header.Children.Add(_headerTint);
         _header.Children.Add(row);
-        _header.MouseLeftButtonDown += (_, _) => FocusRequested?.Invoke(this);
+        _header.MouseLeftButtonDown += (_, e) =>
+        {
+            FocusRequested?.Invoke(this);
+            if (!AllowDrag) return;
+            // Captured, so a quick flick that leaves the header (onto a terminal HWND) is still seen.
+            _dragStart = e.GetPosition(_header);
+            _header.CaptureMouse();
+        };
+        _header.MouseMove += (_, e) =>
+        {
+            if (_dragStart is not { } start) return;
+            if (e.LeftButton != MouseButtonState.Pressed) { EndDragWatch(); return; }
+            var delta = e.GetPosition(_header) - start;
+            if (Math.Abs(delta.X) < SystemParameters.MinimumHorizontalDragDistance * 2
+                && Math.Abs(delta.Y) < SystemParameters.MinimumVerticalDragDistance * 2) return;
+            _dragStart = null; // the capture stays: the drag takes it over
+            HeaderDragStarted?.Invoke(this);
+        };
+        _header.MouseLeftButtonUp += (_, _) => EndDragWatch();
 
         _body = new Grid();
         var content = new DockPanel();
@@ -154,8 +175,28 @@ public sealed class PaneSlot
         set { field = value; if (Frame is not null) Frame.Background = new SolidColorBrush(value); }
     }
 
-    /// <summary>The header row, for anchoring the find results under it.</summary>
+    /// <summary>The header row, for anchoring the find results under it and for dragging the pane.</summary>
     internal FrameworkElement Header => _header;
+
+    private Point? _dragStart;
+
+    /// <summary>The header can be dragged to move the pane: the workspace is split and not zoomed.</summary>
+    public bool AllowDrag
+    {
+        get => _allowDrag;
+        set { if (_allowDrag == value) return; _allowDrag = value; Refresh(); }
+    }
+    private bool _allowDrag;
+
+    /// <summary>The header was dragged past the threshold. The header holds the mouse capture.</summary>
+    public event Action<PaneSlot>? HeaderDragStarted;
+
+    private void EndDragWatch()
+    {
+        if (_dragStart is null) return;
+        _dragStart = null;
+        if (_header.IsMouseCaptured) _header.ReleaseMouseCapture();
+    }
 
     /// <summary>The "Zoomed" note was clicked.</summary>
     public event Action<PaneSlot>? UnzoomRequested;
@@ -311,8 +352,8 @@ public sealed class PaneSlot
         _singleRow.Visibility = multi || finding ? Visibility.Collapsed : Visibility.Visible;
         _tabStrip.Visibility = multi && !finding ? Visibility.Visible : Visibility.Collapsed;
         _closeButton.Visibility = _isSplit && !multi && !finding ? Visibility.Visible : Visibility.Collapsed;
-        _headerText.Visibility = _isSplit ? Visibility.Visible : Visibility.Collapsed;
         _zoomNote.Visibility = zoomed ? Visibility.Visible : Visibility.Collapsed;
+        _grip.Visibility = _allowDrag && !finding ? Visibility.Visible : Visibility.Collapsed;
         var zoom = ActiveTab?.ZoomPercent ?? 100;
         _fontZoomText.Text = $"{zoom}%";
         _fontZoomText.Visibility = zoom != 100 && !finding ? Visibility.Visible : Visibility.Collapsed;
@@ -377,6 +418,45 @@ public sealed class PaneSlot
         var tint = new Border { CornerRadius = new CornerRadius(3), Opacity = 0.16, Visibility = Visibility.Collapsed };
         tint.SetResourceReference(Border.BackgroundProperty, "AccentFillColorDefaultBrush");
         return tint;
+    }
+
+    /// <summary>
+    /// Six dots (3×2) in the middle of the header: this pane can be dragged by its header. Only a
+    /// hint and a bigger cursor target; the press goes on to the header, which does the drag.
+    /// </summary>
+    private static FrameworkElement Grip()
+    {
+        var dots = new GeometryGroup();
+        foreach (var y in new[] { 1.0, 5.0 })
+            foreach (var x in new[] { 1.0, 5.0, 9.0 })
+                dots.Children.Add(new EllipseGeometry(new Point(x, y), 1.1, 1.1));
+        dots.Freeze();
+        var path = new Path
+        {
+            Data = dots,
+            Width = 10,
+            Height = 6,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            SnapsToDevicePixels = true,
+        };
+        path.SetResourceReference(Shape.FillProperty, "TextFillColorSecondaryBrush");
+        var grip = new Border
+        {
+            Child = path,
+            Width = 28,
+            Height = 20,
+            CornerRadius = new CornerRadius(4),
+            Background = Brushes.Transparent,
+            Cursor = Cursors.SizeAll,
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "Drag to move this pane",
+        };
+        // Subtle fill on hover, like the ghost buttons beside it.
+        grip.MouseEnter += (_, _) => grip.SetResourceReference(Border.BackgroundProperty, "SubtleFillColorSecondaryBrush");
+        grip.MouseLeave += (_, _) => grip.Background = Brushes.Transparent;
+        AutomationProperties.SetName(grip, "Drag to move this pane");
+        return grip;
     }
 
     private static Button GhostButton(string glyph, double size, string tip, string name)

@@ -101,6 +101,21 @@ internal static class Program
         new("zoom-pane", "Panes and tabs", "zoom-pane [id]", "Fill the workspace with one pane, or show all again",
             c => CallAsync(Methods.ZoomPane, new() { ["pane"] = c.Pos(0) ?? c.Pane })),
 
+        new("move-pane", "Panes and tabs", "move-pane <left|right|up|down|swap> --to ID [--pane ID]",
+            "Move a pane to one side of another pane, or swap the two (like dragging its header)",
+            c => c.Opt("to") is null
+                ? Task.FromResult(Fail("Usage: aghouse move-pane <left|right|up|down|swap> --to ID [--pane ID]"))
+                : CallAsync(Methods.MovePane, new()
+                {
+                    ["side"] = c.Pos(0) ?? c.Opt("side"),
+                    ["pane"] = c.Pane,
+                    ["to"] = c.Opt("to"),
+                }))
+            {
+                Example = "aghouse move-pane left --to p3",
+                Details = "Ids can be any tab of a pane: the whole pane moves, with all its tabs. 'left' puts this pane on the left of the --to pane.",
+            },
+
         new("rename-pane", "Panes and tabs", "rename-pane <name> [--pane ID] | --clear", "Name a pane or tab; --clear goes back to the automatic name",
             c => c.Positional.Count == 0 && !c.Has("clear")
                 ? Task.FromResult(Fail("Usage: aghouse rename-pane <name> [--pane ID], or --clear"))

@@ -58,6 +58,7 @@ public static class Methods
     public const string SendKeys = "send-keys";
     public const string RenamePane = "rename-pane";
     public const string RestartPane = "restart-pane";
+    public const string MovePane = "move-pane";
     public const string GetSettings = "get-settings";
     public const string SetSetting = "set-setting";
     public const string ResetSetting = "reset-setting";
