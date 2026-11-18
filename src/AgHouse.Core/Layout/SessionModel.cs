@@ -34,6 +34,10 @@ public sealed class TabDto
 public sealed class WorkspaceDto
 {
     public string Name { get; set; } = "";
+
+    /// <summary>Which tile colour the workspace wears (0..5). Null in sessions from before 0.2.1: one is picked on load.</summary>
+    public int? Tile { get; set; }
+
     public PaneLayoutDto? Layout { get; set; }
 }
 

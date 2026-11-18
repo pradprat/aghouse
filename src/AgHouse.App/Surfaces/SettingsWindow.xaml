@@ -1,6 +1,7 @@
 <Window x:Class="AgHouse.App.Surfaces.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="clr-namespace:AgHouse.App"
         Title="aghouse settings" Icon="/Assets/aghouse.ico"
         Width="780" Height="600" MinWidth="560" MinHeight="420"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
@@ -18,7 +19,7 @@
                             <Border x:Name="Bg" CornerRadius="4" Background="Transparent" Padding="{TemplateBinding Padding}">
                                 <ContentPresenter />
                             </Border>
-                            <Border x:Name="Pill" Width="3" Height="16" CornerRadius="1.5" HorizontalAlignment="Left"
+                            <Border x:Name="Pill" app:Motion.Entrance="Pill" Width="3" Height="16" CornerRadius="1.5" HorizontalAlignment="Left"
                                     VerticalAlignment="Center" Visibility="Collapsed"
                                     Background="{DynamicResource AccentFillColorDefaultBrush}" />
                         </Grid>

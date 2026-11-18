@@ -74,8 +74,26 @@ public sealed class AgentRow(Workspace workspace, PaneSession pane) : Observable
 
     public string WorkspaceName { get => _workspaceName; private set => Set(ref _workspaceName, value); }
 
-    /// <summary>" · " and the agent's task (the title it set), or empty when it set none.</summary>
-    public string TaskSuffix => string.IsNullOrEmpty(_task) ? "" : " · " + _task;
+    /// <summary>
+    /// What the row leads with, in Primary Text: for an agent that needs you, its request (the words the workspace
+    /// row and the pane header show, so all three agree); otherwise its task (the title it set). The workspace's
+    /// name when there is neither.
+    /// </summary>
+    public string Headline =>
+        (_state == AgentState.Waiting && !string.IsNullOrEmpty(_message) ? _message
+            : !string.IsNullOrEmpty(_task) ? _task
+            : null) ?? _workspaceName;
+
+    /// <summary>" · workspace" after the headline, in Secondary Text; empty when the headline is the workspace's name.</summary>
+    public string Context => Headline == _workspaceName ? "" : " · " + _workspaceName;
+
+    private bool _markQuiet;
+
+    /// <summary>
+    /// Every agent in the list is the same program: its mark says nothing a row doesn't share, so a brand-coloured
+    /// mark (Claude Code's terracotta, Amp's red) steps down to Secondary Text instead of repeating down the list.
+    /// </summary>
+    public bool MarkQuiet { get => _markQuiet; set => Set(ref _markQuiet, value); }
 
     /// <summary>The workspace's tile colour (kept for the rail and tooltips; the row's mark is the agent's own).</summary>
     public int TileIndex { get => _tileIndex; private set => Set(ref _tileIndex, value); }
@@ -94,19 +112,21 @@ public sealed class AgentRow(Workspace workspace, PaneSession pane) : Observable
     /// <summary>"4 min" since it entered its state, as the waiting list says it.</summary>
     public string Age { get => _age; private set => Set(ref _age, value); }
 
-    /// <summary>"aghouse › Claude Code\nNeeds you · Approve edit to App.cs\nWorking for 4 min".</summary>
+    /// <summary>"aghouse › Claude Code\nNeeds you · Approve edit to App.cs\nFix the build", or "…\nWorking for 4 min".</summary>
     public string ToolTip =>
         $"{_workspaceName} › {Pane.Label}\n"
         + _state switch
         {
-            AgentState.Waiting => "Needs you" + (string.IsNullOrEmpty(_message) ? "" : " · " + _message),
+            // The row leads with the request, so the task (what it was doing) moves here.
+            AgentState.Waiting => "Needs you" + (string.IsNullOrEmpty(_message) ? "" : " · " + _message)
+                + (string.IsNullOrEmpty(_task) || _task == Headline ? "" : "\n" + _task),
             AgentState.Working => $"Working for {_age}",
             _ => $"Idle for {_age}",
         };
 
-    /// <summary>For screen readers: "aghouse, Fix the build, Needs you, 4 min".</summary>
+    /// <summary>For screen readers: "Approve edit to App.cs, aghouse, Needs you, 4 min", the row's own order.</summary>
     public string AutomationName =>
-        $"{_workspaceName}{(string.IsNullOrEmpty(_task) ? "" : ", " + _task)}, "
+        $"{Headline}{(Headline == _workspaceName ? "" : ", " + _workspaceName)}, "
         + (_state switch { AgentState.Waiting => "Needs you", AgentState.Working => "Working", _ => "Idle" })
         + $", {_age}";
 
@@ -128,12 +148,10 @@ public sealed class AgentRow(Workspace workspace, PaneSession pane) : Observable
         else if (state == AgentState.Waiting && Pane.UnreadAt > _since) _since = Pane.UnreadAt; // asked again
         WorkspaceName = Workspace.Name;
         TileIndex = Workspace.TileIndex;
-        if (_task != task)
-        {
-            _task = task;
-            OnPropertyChanged(nameof(TaskSuffix));
-        }
+        _task = task;
         _message = Pane.AttentionMessage;
+        OnPropertyChanged(nameof(Headline));
+        OnPropertyChanged(nameof(Context));
         Age = WaitingRow.FormatAge(now - _since);
         OnPropertyChanged(nameof(ToolTip));
         OnPropertyChanged(nameof(AutomationName));

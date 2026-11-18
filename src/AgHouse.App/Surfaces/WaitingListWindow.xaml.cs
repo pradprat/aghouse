@@ -76,6 +76,9 @@ public partial class WaitingListWindow : FlyoutWindow
         };
     }
 
+    /// <summary>It grows out of the footer line below it, so its rows rise into place.</summary>
+    protected override double EntranceOffset => 8;
+
     private void PlaceAbove(FrameworkElement anchor)
     {
         if (PresentationSource.FromVisual(anchor) is not { CompositionTarget: { } target }) return;

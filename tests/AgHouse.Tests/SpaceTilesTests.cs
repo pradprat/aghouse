@@ -49,6 +49,25 @@ public class SpaceTilesTests
         Assert.True(names.Select(SpaceTiles.IndexFor).Distinct().Count() >= 4);
     }
 
+    [Fact]
+    public void Pick_KeepsTheNamesHueWhileItIsFree()
+    {
+        var hashed = SpaceTiles.IndexFor("knowledge");
+        Assert.Equal(hashed, SpaceTiles.Pick("knowledge", []));
+        Assert.Equal(hashed, SpaceTiles.Pick("knowledge", [(hashed + 1) % SpaceTiles.Count]));
+    }
+
+    [Fact]
+    public void Pick_NeverRepeatsAHueUntilEveryOneIsWorn()
+    {
+        var taken = new List<int>();
+        // Every name hashing to the same hue is the worst case for the old scheme.
+        for (var i = 0; i < SpaceTiles.Count; i++) taken.Add(SpaceTiles.Pick("same", taken));
+        Assert.Equal(SpaceTiles.Count, taken.Distinct().Count());
+        // The seventh starts the second round, at the name's own hue.
+        Assert.Equal(SpaceTiles.IndexFor("same"), SpaceTiles.Pick("same", taken));
+    }
+
     [Theory]
     [InlineData("aghouse", "A")]
     [InlineData("note-scion", "N")]

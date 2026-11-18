@@ -57,7 +57,6 @@ public sealed class Workspace : ObservableObject
         {
             if (!Set(ref _name, value)) return;
             OnPropertyChanged(nameof(TileLetter));
-            OnPropertyChanged(nameof(TileIndex));
             RefreshDetails();
         }
     }
@@ -65,8 +64,18 @@ public sealed class Workspace : ObservableObject
     /// <summary>The sidebar tile's letter: the name's first letter or digit.</summary>
     public string TileLetter => SpaceTiles.LetterFor(_name);
 
-    /// <summary>Which of the theme's tile colours (SpaceTile0Brush..) this workspace wears: stable for its name.</summary>
-    public int TileIndex => SpaceTiles.IndexFor(_name);
+    private int _tileIndex = -1;
+
+    /// <summary>
+    /// Which of the theme's tile colours (SpaceTile0Brush..) this workspace wears. Picked once, when the workspace
+    /// is created, from the hues its neighbours don't wear yet (<see cref="SpaceTiles.Pick"/>), and saved, so it
+    /// stays put across launches and renames. Until then, the hue its name hashes to.
+    /// </summary>
+    public int TileIndex
+    {
+        get => _tileIndex >= 0 ? _tileIndex : SpaceTiles.IndexFor(_name);
+        set => Set(ref _tileIndex, value is >= 0 && value < SpaceTiles.Count ? value : -1);
+    }
 
     public string? ActivePaneId { get => _activePaneId; set => Set(ref _activePaneId, value); }
 
@@ -109,10 +118,29 @@ public sealed class Workspace : ObservableObject
     public string? Branch
     {
         get => _branch;
-        private set { if (Set(ref _branch, value)) OnPropertyChanged(nameof(HasBranch)); }
+        private set
+        {
+            if (!Set(ref _branch, value)) return;
+            OnPropertyChanged(nameof(HasBranch));
+            OnPropertyChanged(nameof(ShowsBranch));
+        }
     }
 
     public bool HasBranch => !string.IsNullOrEmpty(_branch);
+
+    /// <summary>
+    /// The row shows the branch only when it says something: "main" or "master" on every row is noise, and the
+    /// room goes to the name. The tooltip still lists every branch.
+    /// </summary>
+    public bool ShowsBranch => HasBranch && !IsDefaultBranch(_branch!);
+
+    public static bool IsDefaultBranch(string branch) =>
+        branch.Equals("main", StringComparison.OrdinalIgnoreCase) || branch.Equals("master", StringComparison.OrdinalIgnoreCase);
+
+    private DateTime _waitingSince;
+
+    /// <summary>When the newest request still waiting here arrived (UTC); what the row's halo pulses from.</summary>
+    public DateTime WaitingSince { get => _waitingSince; private set => Set(ref _waitingSince, value); }
 
     private ProjectKey _project = ProjectKey.Other;
     private SidebarGroup? _group;
@@ -321,6 +349,8 @@ public sealed class Workspace : ObservableObject
     public void RefreshSummary()
     {
         var waiting = PaneSession.ByUrgency(Panes.Values.Where(p => p.HasUnread)).ToList();
+        // Before HasUnread, so the halo that HasUnread shows already knows when its request arrived.
+        WaitingSince = waiting.Count > 0 ? waiting.Max(p => p.UnreadAt) : default;
         HasUnread = waiting.Count > 0;
         var messages = waiting.Select(p => p.AttentionMessage).OfType<string>().ToList();
         LastMessage = messages.FirstOrDefault();

@@ -83,6 +83,9 @@ public sealed partial class WorkspaceController
             }
         }
         foreach (var gone in _agentRows.Keys.Except(current.Select(r => r.Pane.Id)).ToList()) _agentRows.Remove(gone);
+        // Four Claude Code marks in a row tell four rows apart by nothing: quiet them while every agent is the same program.
+        var alike = current.Count > 1 && current.All(r => r.AgentKey is not null && r.AgentKey == current[0].AgentKey);
+        foreach (var row in current) row.MarkQuiet = alike;
 
         var items = new List<object>();
         foreach (var state in new[] { AgentState.Waiting, AgentState.Working, AgentState.Idle })

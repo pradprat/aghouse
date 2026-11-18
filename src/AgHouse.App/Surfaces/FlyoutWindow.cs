@@ -24,6 +24,7 @@ public class FlyoutWindow : Window
         UseLayoutRounding = true;
         SetResourceReference(BackgroundProperty, "FlyoutBackground");
         SourceInitialized += (_, _) => RoundCorners();
+        Loaded += (_, _) => { if (Content is FrameworkElement content) Motion.Arrive(content, EntranceOffset); };
         Deactivated += (_, _) => CloseOnce();
         PreviewKeyDown += (_, e) =>
         {
@@ -31,6 +32,12 @@ public class FlyoutWindow : Window
         };
         Closing += (_, _) => _closing = true;
     }
+
+    /// <summary>
+    /// Where the content arrives from, in px: negative drops it in from above (the palette, under the
+    /// top edge), positive raises it from below (the waiting list, out of the footer).
+    /// </summary>
+    protected virtual double EntranceOffset => -8;
 
     /// <summary>Runs after the flyout has closed and focus is back on the main window.</summary>
     public Action? AfterClose { get; set; }

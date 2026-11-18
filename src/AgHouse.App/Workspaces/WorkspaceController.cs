@@ -234,7 +234,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     // ───────────────────────────── Workspaces ─────────────────────────────
 
     public Workspace NewWorkspace(string? cwd = null, string? profileId = null, string? name = null,
-        PaneLayoutDto? layout = null, bool select = true)
+        PaneLayoutDto? layout = null, bool select = true, int? tile = null)
     {
         var ws = new Workspace(NewId("w"), name?.Trim() ?? "");
         ws.View.RatiosChanged += ScheduleSave;
@@ -272,6 +272,8 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         ws.ActivePaneId = ws.Slots[ws.Tree.Leaves()[0].PaneId].ActiveTab!.Id;
         // Named after its folder, so the sidebar says where each workspace is ("aghouse", not "Workspace 3").
         if (string.IsNullOrWhiteSpace(ws.Name)) ws.Name = UniqueName(ws.ActivePane?.FolderName ?? "Workspace");
+        // A saved colour stays; a new workspace (or one from an older session) takes a hue its neighbours lack.
+        ws.TileIndex = tile is int t && t >= 0 && t < SpaceTiles.Count ? t : SpaceTiles.Pick(ws.Name, Workspaces.Select(w => w.TileIndex));
         _host.Children.Add(ws.View);
         Render(ws);
         Workspaces.Add(ws);
@@ -1279,7 +1281,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         {
             foreach (var dto in session.Workspaces)
             {
-                NewWorkspace(name: dto.Name, layout: dto.Layout, select: false);
+                NewWorkspace(name: dto.Name, layout: dto.Layout, select: false, tile: dto.Tile);
             }
             Selected = Workspaces[Math.Clamp(session.SelectedIndex, 0, Workspaces.Count - 1)];
         }
@@ -1313,6 +1315,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             Workspaces =Workspaces.Where(w => w.Tree.Root is not null).Select(w => new WorkspaceDto
             {
                 Name = w.Name,
+                Tile = w.TileIndex,
                 Layout = PaneLayoutSerializer.ToDto(w.Tree.Root!, slotId => SlotDto(w.Slots[slotId])),
             }).ToList(),
         };

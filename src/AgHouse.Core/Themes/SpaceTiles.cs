@@ -45,6 +45,27 @@ public static class SpaceTiles
         return fg >= bg ? (fill, scheme.Foreground & 0xFFFFFF, fg) : (fill, scheme.Background & 0xFFFFFF, bg);
     }
 
+    /// <summary>
+    /// The tile colour for a new workspace, next to the ones <paramref name="taken"/> by its neighbours: the hue its
+    /// name hashes to when no other workspace wears fewer, else the least-worn hue, searching from the hashed one.
+    /// Six hues hashed by name collide by the fourth workspace more often than not; picked, they don't repeat until
+    /// the seventh.
+    /// </summary>
+    public static int Pick(string? name, IEnumerable<int> taken)
+    {
+        var worn = new int[Count];
+        foreach (var t in taken)
+            if (t >= 0 && t < Count) worn[t]++;
+        var fewest = worn.Min();
+        var start = IndexFor(name);
+        for (var i = 0; i < Count; i++)
+        {
+            var hue = (start + i) % Count;
+            if (worn[hue] == fewest) return hue;
+        }
+        return start;
+    }
+
     /// <summary>A stable index (0..<see cref="Count"/>-1) for a workspace name, the same on every launch.</summary>
     public static int IndexFor(string? name)
     {

@@ -135,18 +135,39 @@ public partial class MainWindow : Window
         HeaderBar.HorizontalAlignment = collapsed ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
         RailNewButton.Visibility = collapsed ? Visibility.Visible : Visibility.Collapsed;
         SettingsButton.HorizontalContentAlignment = collapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
-        FoldGlyph.Text = collapsed ? "" /* OpenPane */ : "" /* ClosePane */;
+        // One glyph both ways: the hamburger (GlobalNavButton) is the sidebar toggle Windows users know from NavigationView
+        // and Settings; the tooltip says which way it goes. ClosePane/OpenPane (E89F/E8A0) read as generic panels.
+        FoldGlyph.Text = "";
         FoldButton.ToolTip = collapsed ? "Open the sidebar (Ctrl+Shift+B)" : "Fold the sidebar (Ctrl+Shift+B)";
         AutomationProperties.SetName(FoldButton, collapsed ? "Open the sidebar" : "Fold the sidebar");
+        // The rail hides Agents and the footer's status line and adds the + row: refit once that layout has settled.
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, FitWorkspaceList);
     }
 
     private void FoldSidebar_Click(object sender, RoutedEventArgs e) => ToggleSidebar();
 
     private void Search_Click(object sender, RoutedEventArgs e) => ShowPalette();
 
-    /// <summary>The Agents list takes what it needs, up to 45% of the sidebar; Spaces keeps the rest.</summary>
-    private void Sidebar_SizeChanged(object sender, SizeChangedEventArgs e) =>
+    /// <summary>The Agents list takes what it needs, up to 45% of the sidebar; the workspace list may use the rest.</summary>
+    private void Sidebar_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
         AgentsScroll.MaxHeight = Math.Max(80, e.NewSize.Height * 0.45);
+        FitWorkspaceList();
+    }
+
+    /// <summary>Agents or the footer changed height (an agent started, the status line wrapped): refit the list.</summary>
+    private void SidebarBand_SizeChanged(object sender, SizeChangedEventArgs e) => FitWorkspaceList();
+
+    /// <summary>
+    /// The workspace list is as tall as its rows, so Agents sits right under it, but no taller than what the header,
+    /// Agents and the footer leave: past that it scrolls, as before. The slack row under Agents takes what's over.
+    /// </summary>
+    private void FitWorkspaceList()
+    {
+        var rows = Sidebar.RowDefinitions;
+        var others = rows[0].ActualHeight + rows[1].ActualHeight + rows[3].ActualHeight + rows[5].ActualHeight;
+        WorkspaceList.MaxHeight = Math.Max(48, Sidebar.ActualHeight - others);
+    }
 
     private void AgentsHistory_Click(object sender, RoutedEventArgs e) => ShowWaitingList();
 
@@ -155,7 +176,7 @@ public partial class MainWindow : Window
         if ((sender as FrameworkElement)?.DataContext is AgentRow row) Controller.GoToAgent(row);
     }
 
-    /// <summary>The ⋯ next to "Spaces": a new workspace with a chosen shell, and how the list is grouped.</summary>
+    /// <summary>The ⋯ next to "Workspaces": a new workspace with a chosen shell, and how the list is grouped.</summary>
     private void SpacesMenu_Click(object sender, RoutedEventArgs e)
     {
         var menu = new ContextMenu { PlacementTarget = SpacesMenuButton, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };

@@ -365,7 +365,7 @@ public sealed class PaneSlot
             _attentionMessage.Text = single.AttentionMessage is { } m ? " · " + m : "";
             _attentionText.ToolTip = single.AttentionMessage;
         }
-        _headerTint.Visibility = !multi && waiting ? Visibility.Visible : Visibility.Collapsed;
+        ShowTint(_headerTint, !multi && waiting);
         _attentionText.Visibility = !multi && waiting ? Visibility.Visible : Visibility.Collapsed;
         // At rest: Secondary, not Tertiary, which falls under 4.5:1 on the light terminal background.
         SetBrush(_headerText, TextBlock.ForegroundProperty, ref _headerBrushKey, focused ? "TextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush");
@@ -413,9 +413,24 @@ public sealed class PaneSlot
         }
     }
 
+    private const double TintOpacity = 0.16;
+
+    /// <summary>
+    /// Shows or hides a "Needs you" tint. Showing it is the moment a pane starts waiting, so the tint
+    /// swells and settles (<see cref="Motion.Breathe"/>) instead of just appearing; the ring and the
+    /// words beside it arrive at once, so nothing waits on the motion.
+    /// </summary>
+    private static void ShowTint(Border tint, bool show)
+    {
+        if (show == (tint.Visibility == Visibility.Visible)) return;
+        tint.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        if (show) Motion.Breathe(tint, TintOpacity);
+        else tint.BeginAnimation(UIElement.OpacityProperty, null);
+    }
+
     private static Border Tint()
     {
-        var tint = new Border { CornerRadius = new CornerRadius(3), Opacity = 0.16, Visibility = Visibility.Collapsed };
+        var tint = new Border { CornerRadius = new CornerRadius(3), Opacity = TintOpacity, Visibility = Visibility.Collapsed };
         tint.SetResourceReference(Border.BackgroundProperty, "AccentFillColorDefaultBrush");
         return tint;
     }
@@ -580,7 +595,7 @@ public sealed class PaneSlot
             Root.ToolTip = waiting && Pane.AttentionMessage is { } m ? $"Needs you: {m}\n{Pane.Cwd}" : Pane.Cwd;
             AutomationProperties.SetName(Root, waiting ? $"{Pane.Label}, needs you" : Pane.Label);
 
-            _tint.Visibility = waiting ? Visibility.Visible : Visibility.Collapsed;
+            ShowTint(_tint, waiting);
             TabStripPanel.SetKeepWide(Root, waiting);
             var bg = active ? "SubtleFillColorSecondaryBrush" : Root.IsMouseOver ? "SubtleFillColorTertiaryBrush" : null;
             if (bg is null) { _bg.Background = Brushes.Transparent; _bgKey = null; }
