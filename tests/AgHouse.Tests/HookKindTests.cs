@@ -17,3 +17,15 @@ public class HookKindTests
     public void IsFinished(string eventName, string? type, string? message, bool finished) =>
         Assert.Equal(finished, ClaudeHooks.IsFinished(eventName, type, message));
 }
+
+public class ProgramNamesTests
+{
+    [Theory]
+    [InlineData("PING.EXE", "ping")]
+    [InlineData("node.exe", "node")]
+    [InlineData("Code.exe", "Code")]
+    [InlineData("claude.exe", "claude")]
+    [InlineData("7z.exe", "7z")]
+    [InlineData("python3", "python3")]
+    public void Friendly(string image, string expected) => Assert.Equal(expected, ProgramNames.Friendly(image));
+}

@@ -225,7 +225,8 @@ public sealed class PaneSession : ObservableObject, IDisposable
     {
         if (running.Count == 0) return null;
         if (ProgramTitle is { } t) return t;
-        return running.Count == 1 ? running[0] : $"{running[0]} and {running.Count - 1} more";
+        var first = AgHouse.Core.ProgramNames.Friendly(running[0]);
+        return running.Count == 1 ? first : $"{first} and {running.Count - 1} more";
     }
 
     /// <summary>
