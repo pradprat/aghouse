@@ -97,6 +97,18 @@ public sealed class Workspace : ObservableObject
 
     public bool HasBranch => !string.IsNullOrEmpty(_branch);
 
+    private ProjectKey _project = ProjectKey.Other;
+    private SidebarGroup? _group;
+
+    /// <summary>The git repo (or folder) the active pane is in: which sidebar group this workspace joins.</summary>
+    public ProjectKey Project { get => _project; private set => Set(ref _project, value); }
+
+    /// <summary>False until the first look at the active pane's folder has finished (it runs off the UI thread).</summary>
+    public bool HasProject { get; private set; }
+
+    /// <summary>The sidebar group this workspace sits in while the sidebar is grouped (set by the controller).</summary>
+    public SidebarGroup? Group { get => _group; set => Set(ref _group, value); }
+
     public bool IsRenaming { get => _isRenaming; set => Set(ref _isRenaming, value); }
 
     public int PaneCount => Panes.Count;
@@ -127,6 +139,11 @@ public sealed class Workspace : ObservableObject
     }
 
     public bool HasChips => _chips.Count > 0;
+
+    private int _workingCount;
+
+    /// <summary>Agents in this workspace that say what they're doing ("Working"): one per pane.</summary>
+    public int WorkingCount { get => _workingCount; private set => Set(ref _workingCount, value); }
 
     /// <summary>0..1, or null when nothing is reporting progress.</summary>
     public double? Progress
@@ -245,6 +262,7 @@ public sealed class Workspace : ObservableObject
             all = [.. all.Take(MaxChips), new SidebarChip($"+{rest.Count}", string.Join("\n", rest.Select(c => c.Text)), null)];
         }
         Chips = all;
+        WorkingCount = _status.Count(s => s.Key == AgentKey);
         RefreshDetails();
     }
 
@@ -309,9 +327,13 @@ public sealed class Workspace : ObservableObject
     private async Task RefreshBranchAsync(string? cwd)
     {
         var request = ++_branchRequest;
-        var branch = await Task.Run(() => GitInfo.TryGetBranch(cwd)); // resumes on the UI thread
+        var repo = await Task.Run(() => GitInfo.TryGetRepo(cwd)); // resumes on the UI thread
         if (request != _branchRequest) return;
-        Branch = branch;
+        Branch = repo?.Branch;
+        // The first answer is always announced, even when it's the default ("Other"): it puts the row in a group.
+        var first = !HasProject;
+        HasProject = true;
+        if (!Set(ref _project, ProjectKey.For(cwd, repo), nameof(Project)) && first) OnPropertyChanged(nameof(Project));
         RefreshDetails();
         await RefreshPullRequestAsync();
     }

@@ -367,9 +367,10 @@ public sealed partial class WorkspaceController
     private JsonObject ListJson()
     {
         var workspaces = new JsonArray();
-        for (var i = 0; i < Workspaces.Count; i++)
+        var order = SidebarOrder(); // index = the position the sidebar shows (and Ctrl+1..9 uses)
+        for (var i = 0; i < order.Count; i++)
         {
-            var ws = Workspaces[i];
+            var ws = order[i];
             // One entry per terminal (tabs included), in layout order. "slot" groups the tabs of one pane;
             // "tab" is the 1-based position in its strip and "visible" says whether it's the tab on show.
             var panes = new JsonArray();
@@ -398,6 +399,7 @@ public sealed partial class WorkspaceController
                 ["selected"] = ws.IsSelected,
                 ["unread"] = ws.HasUnread,
                 ["branch"] = ws.Branch,
+                ["project"] = ws.HasProject ? ws.Project.Label : null,
                 ["lastMessage"] = ws.LastMessage,
                 ["pullRequest"] = ws.PullRequest,
                 ["status"] = new JsonArray(ws.Chips.Select(c => (JsonNode?)JsonValue.Create(c.Text)).ToArray()),
@@ -523,6 +525,11 @@ public sealed partial class WorkspaceController
             Run(AppAction.SelectWorkspace, index: int.Parse(name["select-workspace-".Length..]) - 1);
             return;
         }
+        if (name == "toggle-groups")
+        {
+            SetGroupWorkspaces(!GroupWorkspaces);
+            return;
+        }
         AppAction? action = name switch
         {
             "new-workspace" => AppAction.NewWorkspace,
@@ -585,7 +592,7 @@ public sealed partial class WorkspaceController
         if (string.IsNullOrWhiteSpace(key)) throw new RpcException("Missing workspace.");
         var ws = Workspaces.FirstOrDefault(w => w.Id == key)
                  ?? Workspaces.FirstOrDefault(w => string.Equals(w.Name, key, StringComparison.OrdinalIgnoreCase))
-                 ?? (int.TryParse(key, out var n) && n >= 1 && n <= Workspaces.Count ? Workspaces[n - 1] : null);
+                 ?? (int.TryParse(key, out var n) && n >= 1 && n <= Workspaces.Count ? SidebarOrder()[n - 1] : null);
         return ws ?? throw new RpcException($"Workspace '{key}' not found.");
     }
 

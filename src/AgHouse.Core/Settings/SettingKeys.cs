@@ -49,6 +49,8 @@ public static class SettingKeys
         new("toasts", SettingType.Bool, "Show a Windows notification when a pane needs you and aghouse isn't in front.", true),
         new("flashTaskbar", SettingType.Bool, "Flash the taskbar button when a pane needs you and aghouse isn't in front.", true),
         new("ctrlDSplits", SettingType.Bool, "Ctrl+D splits right. Off gives Ctrl+D (end of input) back to the terminal.", true),
+        new("groupWorkspaces", SettingType.Bool,
+            "Group sidebar workspaces by project: their git repo (worktrees included), else their folder.", false),
         new("warnMultilinePaste", SettingType.Bool, "Ask before a paste whose line breaks would run commands.", true),
         new("updates", SettingType.Choice,
             "New versions from GitHub Releases. auto: download in the background and install when aghouse quits. "

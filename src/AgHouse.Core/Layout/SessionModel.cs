@@ -50,6 +50,9 @@ public sealed class SessionDto
 
     /// <summary>Where the window was and how wide the sidebar was. Null in sessions from before 0.1.</summary>
     public WindowDto? Window { get; set; }
+
+    /// <summary>Project keys of the sidebar groups the user collapsed (grouped sidebar). Null when none.</summary>
+    public List<string>? CollapsedGroups { get; set; }
 }
 
 /// <summary>Window placement in device-independent pixels (the restore bounds when maximized).</summary>

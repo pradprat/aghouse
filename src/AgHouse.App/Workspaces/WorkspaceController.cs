@@ -211,6 +211,9 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         {
             if (value is null || ReferenceEquals(_selected, value)) return;
             _selected = value;
+            // Ctrl+1..9, a toast, the palette or Ctrl+Shift+U never land on a row hidden in a collapsed group.
+            if (_settings.GroupWorkspaces && value.Group is { IsExpanded: false } collapsed) collapsed.IsExpanded = true;
+            foreach (var g in _groups.Values) g.ContainsSelected = ReferenceEquals(value.Group, g);
             foreach (var ws in Workspaces)
             {
                 ws.IsSelected = ReferenceEquals(ws, value);
@@ -237,7 +240,9 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         ws.View.Visibility = Visibility.Hidden;
         ws.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(Workspace.WaitingCount)) UpdateFooter();
+            if (e.PropertyName == nameof(Workspace.WaitingCount)) { UpdateFooter(); UpdateGroups(); }
+            else if (e.PropertyName == nameof(Workspace.WorkingCount)) UpdateGroups();
+            else if (e.PropertyName == nameof(Workspace.Project)) AssignGroup(ws); // found, or a cd into another repo
             else if (e.PropertyName == nameof(Workspace.Name)) UpdateLabels(ws); // a folder that matches the name stops being a useful label
         };
 
@@ -289,6 +294,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         _host.Children.Remove(ws.View);
         Workspaces.RemoveAt(index);
         UpdateFooter();
+        UpdateGroups();
 
         if (Workspaces.Count == 0)
         {
@@ -327,8 +333,9 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     public void SelectRelative(int delta)
     {
         if (Workspaces.Count == 0) return;
-        var i = _selected is null ? 0 : Workspaces.IndexOf(_selected);
-        Selected = Workspaces[((i + delta) % Workspaces.Count + Workspaces.Count) % Workspaces.Count];
+        var order = SidebarOrder(); // as the sidebar shows them, groups included
+        var i = _selected is null ? 0 : Math.Max(0, order.IndexOf(_selected));
+        Selected = order[((i + delta) % order.Count + order.Count) % order.Count];
     }
 
     // ───────────────────────────── Panes ─────────────────────────────
@@ -722,6 +729,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         index = Math.Clamp(index, 0, Workspaces.Count - 1);
         if (index == from) return;
         Workspaces.Move(from, index);
+        UpdateGroups(); // a group sits where its first workspace is
         OnPropertyChanged(nameof(Selected)); // the list can drop its selection when the selected row moves
         ScheduleSave();
     }
@@ -854,6 +862,9 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         _settings.Theme = changed.Theme;
         _settings.CtrlDSplits = changed.CtrlDSplits;
         _settings.WarnMultilinePaste = changed.WarnMultilinePaste;
+        var groupingChanged = changed.GroupWorkspaces != _settings.GroupWorkspaces;
+        _settings.GroupWorkspaces = changed.GroupWorkspaces;
+        if (groupingChanged) GroupingSettingApplied();
         var updatesChanged = changed.Updates != _settings.Updates;
         _settings.Updates = changed.Updates;
         if (updatesChanged) Updates.SettingChanged();
@@ -1052,7 +1063,8 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             case AppAction.SplitDown: Split(Direction.Down); return true;
             case AppAction.Focus: MoveFocus(s.Direction); return true;
             case AppAction.SelectWorkspace:
-                if (Workspaces.Count > 0) Selected = s.Index == 8 ? Workspaces[^1] : Workspaces.ElementAtOrDefault(s.Index) ?? _selected;
+                if (Workspaces.Count > 0 && SidebarOrder() is var order) // the numbers follow the sidebar, groups included
+                    Selected = s.Index == 8 ? order[^1] : order.ElementAtOrDefault(s.Index) ?? _selected;
                 return true;
             case AppAction.NextWorkspace: SelectRelative(1); return true;
             case AppAction.PreviousWorkspace: SelectRelative(-1); return true;
@@ -1253,6 +1265,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         }
         var saved = AppStorage.LoadSession();
         _notifiedOnce = saved?.NotifiedOnce ?? false;
+        _collapsedGroups.UnionWith(saved?.CollapsedGroups ?? []);
         UpdateFooter();
         var session = _settings.RestoreSession ? saved : null;
         if (session is { Workspaces.Count: > 0 })
@@ -1289,7 +1302,8 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             SelectedIndex = _selected is null ? 0 : Math.Max(0, Workspaces.IndexOf(_selected)),
             NotifiedOnce = _notifiedOnce,
             Window = CapturePlacement?.Invoke(),
-            Workspaces = Workspaces.Where(w => w.Tree.Root is not null).Select(w => new WorkspaceDto
+            CollapsedGroups = SavedCollapsedGroups(),
+            Workspaces =Workspaces.Where(w => w.Tree.Root is not null).Select(w => new WorkspaceDto
             {
                 Name = w.Name,
                 Layout = PaneLayoutSerializer.ToDto(w.Tree.Root!, slotId => SlotDto(w.Slots[slotId])),

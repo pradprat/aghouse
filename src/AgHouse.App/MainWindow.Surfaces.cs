@@ -150,7 +150,7 @@ public partial class MainWindow
         }
 
         order = 1000;
-        var workspaces = Controller.Workspaces.ToList();
+        var workspaces = Controller.SidebarOrder(); // numbered as the sidebar shows them, like Ctrl+1..9
         for (var i = 0; i < workspaces.Count; i++)
         {
             var ws = workspaces[i];

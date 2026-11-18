@@ -42,7 +42,7 @@ public partial class SettingsWindow : Window
             ProblemBar.Visibility = Visibility.Visible;
             ProblemTitle.Text = problem.Summary;
             ProblemDetail.Text = $"{problem.Detail}\naghouse is running on default settings. Fix the file and restart aghouse to change settings here.";
-            foreach (var control in new Control[] { DefaultShell, CtrlDSplits, RestoreSession, WarnMultilinePaste, ThemeChoice,
+            foreach (var control in new Control[] { DefaultShell, CtrlDSplits, GroupWorkspaces, RestoreSession, WarnMultilinePaste, ThemeChoice,
                          DarkThemeChoice, LightThemeChoice, ImportThemes, FontChoice, SizeChoice, Toasts, FlashTaskbar, UpdatesChoice })
             {
                 control.IsEnabled = false;
@@ -84,6 +84,7 @@ public partial class SettingsWindow : Window
         DefaultShell.ItemsSource = _controller.Profiles.All;
         DefaultShell.SelectedItem = _controller.Profiles.Default;
         CtrlDSplits.IsChecked = s.CtrlDSplits;
+        GroupWorkspaces.IsChecked = s.GroupWorkspaces;
         RestoreSession.IsChecked = s.RestoreSession;
         ThemeChoice.SelectedItem = ThemeChoice.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == s.Theme) ?? ThemeChoice.Items[0];
         LoadThemes();
@@ -124,6 +125,7 @@ public partial class SettingsWindow : Window
         // Only once someone picks a shell: an unset default keeps following "the first shell found".
         if (ReferenceEquals(sender, DefaultShell) && DefaultShell.SelectedItem is ShellProfile profile) s.DefaultProfile = profile.Id;
         s.CtrlDSplits = CtrlDSplits.IsChecked == true;
+        s.GroupWorkspaces = GroupWorkspaces.IsChecked == true;
         s.RestoreSession = RestoreSession.IsChecked == true;
         if (ThemeChoice.SelectedItem is ComboBoxItem { Tag: string theme }) s.Theme = theme;
         if (DarkThemeChoice.SelectedItem is ThemeOption dark) s.DarkTheme = dark.Name;

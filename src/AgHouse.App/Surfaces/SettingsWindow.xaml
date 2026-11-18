@@ -235,6 +235,16 @@
                         </Border>
                         <Border Style="{StaticResource Row}">
                             <DockPanel>
+                                <CheckBox x:Name="GroupWorkspaces" DockPanel.Dock="Right" VerticalAlignment="Center" Click="Changed"
+                                          AutomationProperties.Name="Group workspaces by project" />
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Text="Group workspaces by project" Style="{StaticResource Label}" />
+                                    <TextBlock Text="The sidebar puts workspaces in the same git repo (worktrees included) or folder under one header you can collapse. The button next to Workspaces does the same." Style="{StaticResource Help}" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                        <Border Style="{StaticResource Row}">
+                            <DockPanel>
                                 <CheckBox x:Name="RestoreSession" DockPanel.Dock="Right" VerticalAlignment="Center" Click="Changed"
                                           AutomationProperties.Name="Reopen workspaces at launch" />
                                 <StackPanel Margin="0,0,16,0">

@@ -220,7 +220,7 @@ internal static class Program
             {
                 Example = "aghouse settings set theme light",
                 Details = "Keys: defaultProfile, fontFamily, fontSize, theme, darkTheme, lightTheme, restoreSession, toasts, flashTaskbar, " +
-                          "ctrlDSplits, warnMultilinePaste, updates " +
+                          "ctrlDSplits, groupWorkspaces, warnMultilinePaste, updates " +
                           "(font-size and other spellings work). 'settings get KEY' prints just the value.",
             },
 

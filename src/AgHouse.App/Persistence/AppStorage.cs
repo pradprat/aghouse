@@ -28,6 +28,8 @@ public sealed class AppSettings
     public bool FlashTaskbar { get; set; } = true;
     /// <summary>Ask before a paste whose line breaks would run commands (the shell didn't turn on bracketed paste).</summary>
     public bool WarnMultilinePaste { get; set; } = true;
+    /// <summary>The sidebar groups workspaces by project: their git repo (worktrees included), else their folder.</summary>
+    public bool GroupWorkspaces { get; set; }
     /// <summary>
     /// "auto": download a new version in the background and install it when aghouse quits.
     /// "notify": only say a new version is out. "off": never ask GitHub unless told to.
