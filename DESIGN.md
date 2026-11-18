@@ -154,7 +154,7 @@ components:
 
 aghouse is a set of plain Windows tools with nothing dressed up. The built-in WPF Fluent theme does the work: Mica behind the window, the system title bar, the user's own accent colour, Segoe UI text and Segoe Fluent Icons glyphs. The terminals are the content. The window chrome is a narrow sidebar and thin frames around panes. Nothing else competes for space or attention.
 
-The system is quiet on purpose. It is almost entirely made of theme resources rather than fixed colours, so it follows the user's light/dark setting and accent and looks like it shipped with Windows. Fixed colours appear in only two places: the terminal palettes, because the terminal is a native control that can't read WPF brushes, and the logo. Density is that of a desktop power tool: compact rows, 12px metadata, and a terminal font at 11pt by default.
+The system is quiet on purpose. It is almost entirely made of theme resources rather than fixed colours, so it follows the user's light/dark setting and accent and looks like it shipped with Windows. Fixed colours appear in only two places: the colour-scheme tables, because the terminal is a native control that can't read WPF brushes, and the logo. The default theme, "Windows", is exactly that native look. A user who picks a scheme theme (Dracula, Solarized, their own) opts into a window coloured by that scheme, but even then every colour comes from the scheme's table through fixed rules, never from hand-picked chrome hex. Density is that of a desktop power tool: compact rows, 12px metadata, and a terminal font at 11pt by default.
 
 aghouse never looks like a web app in a frame, never like a neon "hacker" terminal, never like busy IDE chrome, and never paints brand colour across the UI.
 
@@ -167,7 +167,7 @@ aghouse never looks like a web app in a frame, never like a neon "hacker" termin
 
 ## Colors
 
-The palette is the Windows theme itself, plus two terminal palettes chosen to sit quietly next to Mica.
+Under the default "Windows" theme, the palette is the Windows theme itself plus two terminal palettes chosen to sit quietly next to Mica. Everything in Primary and Neutral below describes that theme. Scheme themes keep every one of these roles and brushes, but derive their values from the scheme (see Themes).
 
 ### Primary
 - **System Accent** (`AccentFillColorDefaultBrush`; reference value `system-accent`, the dark-theme fill for Windows' default blue): the user's own Windows accent. It is the only chromatic colour in the chrome. It marks the selected workspace (a 3×16 pill), workspaces with a pane that needs you (a filled dot with a faint halo), and panes that need you (a 2px frame). Never hard-code it. Always bind the brush so the user's accent wins.
@@ -343,9 +343,10 @@ It takes over the pane's 26px header row while open. The tab strip and ✕ step 
 ### Settings window (Ctrl+,)
 A normal Fluent window with Mica and the system title bar, 780×600 and resizable, owned by the main window.
 - **Nav:** a 200px list of General, Appearance, Notifications, Integrations and About, each with a Segoe Fluent Icons glyph. The rows look like the sidebar's: subtle fill, accent pill on the selected page, two-stroke focus ring.
-- **Pages:** a 14/600 page title, then rows. Each row has a 14px label with Meta-type help under it in Secondary Text, the stock control on the right, and a hairline Divider under it. No cards.
+- **Pages:** a 20/600 page title (WinUI's subtitle step), then rows, all in one column up to 640px wide so the controls on the right share one edge on every page. Each row has a 14px label with Meta-type help under it in Secondary Text, the stock control on the right, and a hairline Divider under it. No cards.
+- **Appearance:** Mode, Dark theme and Light theme (pickers with swatch strips), the side-by-side preview, a caution line naming custom schemes that were skipped, **Import from Windows Terminal** with its result in words underneath, then Terminal font and Text size. See Themes under Colors.
 - **Behaviour:** every change applies at once and is written to settings.json, keeping keys aghouse doesn't know. A broken settings.json shows a Fluent InfoBar (caution background and glyph, "Edit settings.json") and makes every control read-only.
-- **Integrations:** Claude Code's state in words ("Connected…", "Partly connected: Stop doesn't…", "Not connected…", "isn't valid JSON…"), and **Connect Claude Code**, which shows a stock MessageBox listing exactly what will be added and asks first (Yes / No, No by default).
+- **Integrations:** Claude Code's state in words ("Connected…", "Connected through another copy of aghouse (path)…" when every hook runs a different aghouse, "Partly connected: Stop doesn't…", "Not connected…", "isn't valid JSON…"), and **Connect Claude Code** (**Use this copy** for another copy), which shows a stock MessageBox listing exactly what will be added and asks first (Yes / No, No by default). Under it, OpenCode's row in the same shape: "Connected…", "Connected through another copy of aghouse (path)…", "Connected with an older version…" (**Update**), "Not connected…" naming the plugin folder, and **Connect OpenCode**, whose MessageBox names the folder and the aghouse.exe it will run.
 - **About:** the 48px mark, "aghouse", "Version 0.1.0 · 03d5770", the one-line description, an updates row (the last check's answer in words — "aghouse is up to date", "Downloading aghouse 0.1.3… 42%", "aghouse 0.1.3 is ready" — with a "What's new" link, **Check for updates**, and, when there is one, **Restart to update** / **Download and restart** / **Open the release page**; stock buttons, no accent), an **Install updates** row (Automatically / Ask me first / Don't check), neutral underlined links (GitHub, Releases), MIT License, and buttons for the logs folder and settings.json.
 
 ### Welcome screen (first launch only)
@@ -365,7 +366,7 @@ A 10px accent circle with a faint 1px halo ring. It sits at the right edge of th
 ## Do's and Don'ts
 
 ### Do:
-- **Do** bind every UI colour to a Fluent theme brush (`DynamicResource ...Brush`) so light, dark and accent follow Windows.
+- **Do** bind every UI colour to a Fluent theme brush (`DynamicResource ...Brush`) so light, dark, accent and the chosen theme all follow.
 - **Do** use stock Fluent controls as they are. Build a custom template only when WPF lacks the control, as the workspace list does with its NavigationView-style item.
 - **Do** use one Segoe Fluent Icons glyph (10–13px) for chrome actions, with a tooltip that names the shortcut.
 - **Do** put attention around panes (the 2px accent frame plus the "Needs you" header) and beside workspaces (the accent dot at the row's right edge), never over the terminal.
@@ -383,4 +384,4 @@ A 10px accent circle with a faint 1px halo ring. It sits at the right edge of th
 - **Don't** use the accent for anything except selection and attention, and never use it to show focus.
 - **Don't** show attention by colour alone. The accent ring always comes with the words "Needs you".
 - **Don't** add drop shadows, glows, gradients or custom acrylic to the chrome.
-- **Don't** hard-code hex colours in UI code. Only the terminal palettes may.
+- **Don't** hard-code hex colours in UI code. Only scheme tables may, plus the Settings preview and swatches that draw them.

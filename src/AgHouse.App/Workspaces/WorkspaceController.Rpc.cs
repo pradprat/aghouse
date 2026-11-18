@@ -270,7 +270,39 @@ public sealed partial class WorkspaceController
                         ?? throw new RpcException($"The font '{name}' isn't installed. Monospaced fonts here: {string.Join(", ", MonospaceFonts())}.");
                     value = font.Source;
                 }
+                if (key.Name is "darkTheme" or "lightTheme")
+                {
+                    var name = value!.GetValue<string>();
+                    var scheme = Themes.Find(name, light: key.Name == "lightTheme")
+                        ?? throw new RpcException($"No theme called '{name}'. 'aghouse themes' lists them.");
+                    value = scheme.Name;
+                }
                 return ChangeSetting(key, value);
+            }
+
+            case Methods.Themes:
+                return ThemesJson();
+
+            case Methods.ImportThemes:
+            {
+                if (_settingsProblem is { } problem)
+                    throw new RpcException($"{problem.Summary}, so settings are read-only until it's fixed and aghouse restarts ({AppStorage.SettingsPath}).");
+                var changed = _settings.Clone();
+                var result = Core.Themes.ThemeCatalog.ImportWindowsTerminal(changed.Schemes);
+                var saved = true;
+                if (result.Added.Count > 0)
+                {
+                    ApplySettings(changed);
+                    saved = AppStorage.SaveSettings(_settings);
+                }
+                return new JsonObject
+                {
+                    ["found"] = result.FoundSettings,
+                    ["added"] = new JsonArray(result.Added.Select(n => (JsonNode?)n).ToArray()),
+                    ["skipped"] = result.Skipped,
+                    ["summary"] = result.Summary,
+                    ["saved"] = saved,
+                };
             }
 
             case Methods.ResetSetting:
@@ -409,6 +441,30 @@ public sealed partial class WorkspaceController
             ["readOnly"] = _settingsProblem is not null,
             ["problem"] = _settingsProblem is { } p ? $"{p.Summary}: {p.Detail}" : null,
             ["settings"] = new JsonArray(SettingKeys.All.Select(k => (JsonNode?)Entry(k)).ToArray()),
+        };
+    }
+
+    /// <summary>Every theme, which picker it belongs to, where it comes from and whether it's in use.</summary>
+    private JsonObject ThemesJson()
+    {
+        var list = new JsonArray();
+        foreach (var s in Themes.All())
+        {
+            list.Add(new JsonObject
+            {
+                ["name"] = s.Name,
+                ["kind"] = s.IsWindows ? "dark+light" : s.IsLight ? "light" : "dark",
+                ["source"] = s.Source switch { Core.Themes.SchemeSource.Custom => "custom", Core.Themes.SchemeSource.BuiltIn => "built-in", _ => "windows" },
+                ["darkTheme"] = Core.Themes.ThemeCatalog.SameName(s.Name, _settings.DarkTheme),
+                ["lightTheme"] = Core.Themes.ThemeCatalog.SameName(s.Name, _settings.LightTheme),
+                ["lowContrast"] = !s.IsWindows && s.LowContrast,
+            });
+        }
+        return new JsonObject
+        {
+            ["showing"] = _scheme.Name,
+            ["themes"] = list,
+            ["problems"] = new JsonArray(Themes.Problems.Select(p => (JsonNode?)p).ToArray()),
         };
     }
 

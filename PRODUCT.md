@@ -49,7 +49,7 @@ aghouse is the Windows-native take on the cmux idea. The UI uses WPF Fluent, Mic
 
 - Name: **aghouse**, written in lowercase.
 - Logo sources in `assets/`: `logo.svg`, `logo-small.svg`, `logo-wordmark.svg`, `logo-wordmark-dark.svg`, plus generated PNGs and `src/AgHouse.App/Assets/aghouse.ico` (built by `assets/build-icons.ps1`).
-- Must feel native to Windows: Fluent theme, Mica, system title bar, standard Windows controls. It must never read as a web app inside a frame.
+- Must feel native to Windows: Fluent theme, Mica, system title bar, standard Windows controls. It must never read as a web app inside a frame. The default "Windows" theme is exactly this native look. Scheme themes are opt-in: they replace Mica with solid colours from the scheme, but keep the stock Fluent controls, the system title bar and every layout and behaviour.
 
 ## Evidence on Hand
 

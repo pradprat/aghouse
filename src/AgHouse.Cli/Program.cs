@@ -204,9 +204,18 @@ internal static class Program
             "Read or change settings.json; changes apply at once", SettingsAsync)
             {
                 Example = "aghouse settings set theme light",
-                Details = "Keys: defaultProfile, fontFamily, fontSize, theme, restoreSession, toasts, flashTaskbar, ctrlDSplits, " +
-                          "warnMultilinePaste, updates " +
+                Details = "Keys: defaultProfile, fontFamily, fontSize, theme, darkTheme, lightTheme, restoreSession, toasts, flashTaskbar, " +
+                          "ctrlDSplits, warnMultilinePaste, updates " +
                           "(font-size and other spellings work). 'settings get KEY' prints just the value.",
+            },
+
+        new("themes", "Settings", "themes [list] | import  [--json]",
+            "List colour themes, or import Windows Terminal's schemes", ThemesAsync)
+            {
+                Example = "aghouse settings set darkTheme \"Tokyo Night\"",
+                Details = "theme picks the mode (system, dark, light); darkTheme and lightTheme pick what each mode shows. " +
+                          "Windows keeps Mica and your accent. Add your own schemes to the \"schemes\" array in settings.json, " +
+                          "in Windows Terminal's format, with an optional \"accent\". 'themes import' copies Windows Terminal's.",
             },
 
         // ───────────── App ─────────────
@@ -572,6 +581,47 @@ internal static class Program
         else Console.WriteLine($"{result["key"]} = {Plain(result["value"])}");
         if (result["note"]?.GetValue<string>() is { } note) Console.Error.WriteLine($"aghouse: {note}");
         return ExitOk;
+    }
+
+    private static async Task<int> ThemesAsync(Ctx c)
+    {
+        switch (c.Pos(0) ?? "list")
+        {
+            case "list":
+            {
+                var result = await RequestAsync(Methods.Themes, new());
+                if (result is null) return ExitError;
+                if (c.Has("json")) { Console.WriteLine(result.ToJsonString(Pretty)); return ExitOk; }
+                var rows = result["themes"]!.AsArray().Select(t => t!).ToList();
+                var width = rows.Max(t => t["name"]!.GetValue<string>().Length) + 2;
+                foreach (var t in rows)
+                {
+                    var marks = new List<string>();
+                    if (t["darkTheme"]!.GetValue<bool>()) marks.Add("darkTheme");
+                    if (t["lightTheme"]!.GetValue<bool>()) marks.Add("lightTheme");
+                    if (t["lowContrast"]!.GetValue<bool>()) marks.Add("low contrast");
+                    var source = t["source"]!.GetValue<string>() == "custom" ? "custom" : "";
+                    Console.WriteLine($"{t["name"]!.GetValue<string>().PadRight(width)}{t["kind"]!.GetValue<string>(),-12}{source,-8}" +
+                                      (marks.Count > 0 ? $"({string.Join(", ", marks)})" : ""));
+                }
+                foreach (var p in result["problems"]!.AsArray()) Console.Error.WriteLine($"aghouse: skipped in settings.json: {p}");
+                return ExitOk;
+            }
+
+            case "import":
+            {
+                var result = await RequestAsync(Methods.ImportThemes, new());
+                if (result is null) return ExitError;
+                if (c.Has("json")) Console.WriteLine(result.ToJsonString(Pretty));
+                else Console.WriteLine(result["summary"]!.GetValue<string>());
+                if (result["saved"]?.GetValue<bool>() == false)
+                    Console.Error.WriteLine("aghouse: imported until aghouse closes, but settings.json couldn't be written. The log has the details.");
+                return ExitOk;
+            }
+
+            default:
+                return Fail("Usage: aghouse themes [list] | import");
+        }
     }
 
     private static async Task<int> ProfilesAsync(Ctx c)

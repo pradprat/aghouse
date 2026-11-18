@@ -5,9 +5,11 @@ using System.Windows.Controls;
 using System.Windows.Navigation;
 using AgHouse.App.Persistence;
 using AgHouse.App.Terminal;
+using AgHouse.App.Theming;
 using AgHouse.App.Updates;
 using AgHouse.App.Workspaces;
 using AgHouse.Core;
+using AgHouse.Core.Themes;
 
 namespace AgHouse.App.Surfaces;
 
@@ -40,7 +42,8 @@ public partial class SettingsWindow : Window
             ProblemBar.Visibility = Visibility.Visible;
             ProblemTitle.Text = problem.Summary;
             ProblemDetail.Text = $"{problem.Detail}\naghouse is running on default settings. Fix the file and restart aghouse to change settings here.";
-            foreach (var control in new Control[] { DefaultShell, CtrlDSplits, RestoreSession, WarnMultilinePaste, ThemeChoice, FontChoice, SizeChoice, Toasts, FlashTaskbar, UpdatesChoice })
+            foreach (var control in new Control[] { DefaultShell, CtrlDSplits, RestoreSession, WarnMultilinePaste, ThemeChoice,
+                         DarkThemeChoice, LightThemeChoice, ImportThemes, FontChoice, SizeChoice, Toasts, FlashTaskbar, UpdatesChoice })
             {
                 control.IsEnabled = false;
             }
@@ -53,10 +56,12 @@ public partial class SettingsWindow : Window
         // A script may change settings while this is open (aghouse settings set): show what's in effect.
         controller.SettingsChanged += OnSettingsChanged;
         controller.Updates.Changed += RefreshUpdates;
+        controller.AppearanceChanged += ShowPreviews; // "showing now" follows Windows' light/dark switch too
         Closed += (_, _) =>
         {
             controller.SettingsChanged -= OnSettingsChanged;
             controller.Updates.Changed -= RefreshUpdates;
+            controller.AppearanceChanged -= ShowPreviews;
         };
         RefreshUpdates();
     }
@@ -81,6 +86,7 @@ public partial class SettingsWindow : Window
         CtrlDSplits.IsChecked = s.CtrlDSplits;
         RestoreSession.IsChecked = s.RestoreSession;
         ThemeChoice.SelectedItem = ThemeChoice.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == s.Theme) ?? ThemeChoice.Items[0];
+        LoadThemes();
         var fonts = WorkspaceController.MonospaceFonts().ToList();
         if (!fonts.Contains(s.FontFamily, StringComparer.OrdinalIgnoreCase)) fonts.Insert(0, s.FontFamily);
         FontChoice.ItemsSource = fonts;
@@ -120,13 +126,21 @@ public partial class SettingsWindow : Window
         s.CtrlDSplits = CtrlDSplits.IsChecked == true;
         s.RestoreSession = RestoreSession.IsChecked == true;
         if (ThemeChoice.SelectedItem is ComboBoxItem { Tag: string theme }) s.Theme = theme;
+        if (DarkThemeChoice.SelectedItem is ThemeOption dark) s.DarkTheme = dark.Name;
+        if (LightThemeChoice.SelectedItem is ThemeOption light) s.LightTheme = light.Name;
         if (FontChoice.SelectedItem is string font) s.FontFamily = font;
         if (SizeChoice.SelectedItem is int size) s.FontSize = size;
         s.Toasts = Toasts.IsChecked == true;
         s.FlashTaskbar = FlashTaskbar.IsChecked == true;
         s.WarnMultilinePaste = WarnMultilinePaste.IsChecked == true;
         if (UpdatesChoice.SelectedItem is ComboBoxItem { Tag: string updates }) s.Updates = updates;
+        Commit(s);
+        ShowPreviews();
+    }
 
+    /// <summary>Applies <paramref name="s"/> now and writes it to settings.json.</summary>
+    private void Commit(AppSettings s)
+    {
         _applying = true;
         try { _controller.ApplySettings(s); }
         finally { _applying = false; }
@@ -136,6 +150,56 @@ public partial class SettingsWindow : Window
             ProblemTitle.Text = "Couldn't save settings.json";
             ProblemDetail.Text = "The change applies until aghouse closes. The log has the details.";
         }
+    }
+
+    // ───────────── Themes ─────────────
+
+    /// <summary>Fills both theme pickers from the catalog and selects the themes in settings.</summary>
+    private void LoadThemes()
+    {
+        var s = _controller.Settings;
+        var themes = _controller.Themes;
+        void Fill(ComboBox picker, bool light, string name)
+        {
+            var options = themes.For(light).Select(ThemeOption.For).ToList();
+            picker.ItemsSource = options;
+            // An unknown name shows as Windows, which is what's on screen for it.
+            picker.SelectedItem = options.FirstOrDefault(o => ThemeCatalog.SameName(o.Name, name)) ?? options[0];
+        }
+        Fill(DarkThemeChoice, light: false, s.DarkTheme);
+        Fill(LightThemeChoice, light: true, s.LightTheme);
+
+        SchemeProblems.Visibility = themes.Problems.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        SchemeProblemsText.Text = themes.Problems.Count == 0 ? ""
+            : $"Skipped in settings.json: {string.Join("; ", themes.Problems)}.";
+        ShowPreviews();
+    }
+
+    private void ShowPreviews()
+    {
+        DarkPreview.Content = DarkThemeChoice.SelectedItem;
+        LightPreview.Content = LightThemeChoice.SelectedItem;
+        var lightOnScreen = _controller.CurrentScheme.IsLight;
+        DarkPreviewLabel.Text = $"Dark · {(DarkThemeChoice.SelectedItem as ThemeOption)?.Name}{(lightOnScreen ? "" : " · showing now")}";
+        LightPreviewLabel.Text = $"Light · {(LightThemeChoice.SelectedItem as ThemeOption)?.Name}{(lightOnScreen ? " · showing now" : "")}";
+    }
+
+    private void ImportThemes_Click(object sender, RoutedEventArgs e)
+    {
+        if (_controller.SettingsProblem is not null) return;
+        var s = _controller.Settings.Clone();
+        var result = ThemeCatalog.ImportWindowsTerminal(s.Schemes);
+        if (result.Added.Count > 0)
+        {
+            Commit(s);
+            _loading = true;
+            try { LoadThemes(); }
+            finally { _loading = false; }
+        }
+        ImportResult.Text = result.Added.Count > 0
+            ? result.Summary + " Pick them above."
+            : result.Summary;
+        ImportResult.Visibility = Visibility.Visible;
     }
 
     // ───────────── Claude Code ─────────────

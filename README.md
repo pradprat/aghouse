@@ -14,7 +14,8 @@ A Windows-native terminal workspace app for running coding agents side by side, 
 - **Agent attention:** a pane can ask for attention with an escape code (OSC 9 / 99 / 777, or a bell) or with `aghouse notify`. That pane gets an accent ring and the workspace gets a dot. If the window isn't in front, you also get a toast and the taskbar button flashes.
 - **Everything a keystroke away:** a command palette (Ctrl+Shift+P) for every action, workspace and pane, and a waiting list (Ctrl+Shift+I) of the panes that need you, plus requests you already handled.
 - **Terminal basics:** find in a pane's output, per-pane text size, and pane zoom.
-- **Settings:** a Settings window where changes apply at once, including the theme, which recolours the terminals too. Settings › Integrations connects Claude Code in one click.
+- **Themes:** pick a dark theme and a light theme, and aghouse follows Windows between them. "Windows" keeps Mica and your accent colour. The 15 built-in schemes (Dracula, Tokyo Night, Gruvbox, Catppuccin, Solarized, Nord and more), your own schemes, and schemes imported from Windows Terminal colour the whole app, terminals included.
+- **Settings:** a Settings window where changes apply at once. Settings › Integrations connects Claude Code in one click.
 - **Automation:** the `aghouse` CLI talks to the app over a per-user named pipe.
 
 ## Build & run
@@ -116,6 +117,8 @@ aghouse log "Lint found 3 warnings" --level warn
 # Settings (apply at once, written to settings.json)
 aghouse settings                                # every key, its value and what it takes
 aghouse settings get theme | set theme light | reset theme | path
+aghouse settings set darkTheme "Tokyo Night"    # what dark mode shows (lightTheme for light)
+aghouse themes                                  # every theme; themes import copies Windows Terminal's
 
 # The rest of the app
 aghouse actions                                 # every palette/shortcut action

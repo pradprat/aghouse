@@ -62,6 +62,8 @@ public static class Methods
     public const string SetSetting = "set-setting";
     public const string ResetSetting = "reset-setting";
     public const string Profiles = "profiles";
+    public const string Themes = "themes";
+    public const string ImportThemes = "import-themes";
     public const string Actions = "actions";
     public const string RunAction = "run-action";
     public const string Quit = "quit";

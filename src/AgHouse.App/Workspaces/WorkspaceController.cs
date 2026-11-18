@@ -15,6 +15,8 @@ using AgHouse.App.Updates;
 using AgHouse.Core.Ipc;
 using AgHouse.Core.Layout;
 using AgHouse.Core.Terminal;
+using AgHouse.Core.Themes;
+using AgHouse.App.Theming;
 
 namespace AgHouse.App.Workspaces;
 
@@ -37,6 +39,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     private readonly DispatcherTimer _prTimer;
     private bool _scanningPorts;
     private bool _light;
+    private ColorScheme _scheme;
     private string _fontFamily;
     private Workspace? _selected;
     private int _nextId;
@@ -57,6 +60,9 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         Profiles = profiles;
         _toasts = toasts;
         _light = TerminalThemes.IsLight(settings.Theme);
+        Themes = new ThemeCatalog(settings.Schemes);
+        _scheme = Themes.Resolve(_light ? settings.LightTheme : settings.DarkTheme, _light);
+        AppTheme.Apply(_scheme);
         _fontFamily = ResolveFont(settings.FontFamily);
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -327,7 +333,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
 
     private PaneSlot CreateSlot(Workspace ws)
     {
-        var slot = new PaneSlot(NewId("s"), TerminalThemes.BackgroundOf(_light));
+        var slot = new PaneSlot(NewId("s"), TerminalThemes.BackgroundOf(_scheme));
         slot.FocusRequested += s => { if (s.ActiveTab is { } t) FocusPane(t.Id); };
         slot.TabActivated += p => FocusPane(p.Id);
         slot.CloseRequested += p => RequestClosePane(p.Id);
@@ -358,7 +364,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         foreach (var (k, v) in profile.Env) env[k] = v;
 
         var pane = new PaneSession(id, ws.Id, profile, cwd,
-            _light ? TerminalThemes.Light : TerminalThemes.Dark, TerminalThemes.BackgroundOf(_light),
+            TerminalThemes.From(_scheme), TerminalThemes.BackgroundOf(_scheme),
             _fontFamily, _settings.FontSize, env) { Token = token };
 
         pane.TerminalEvent += OnTerminalEvent;
@@ -791,8 +797,18 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     /// </summary>
     public void ApplySettings(AppSettings changed)
     {
+        var schemesChanged = changed.Schemes.ToJsonString() != _settings.Schemes.ToJsonString();
         var appearance = changed.Theme != _settings.Theme || changed.FontFamily != _settings.FontFamily
-                         || changed.FontSize != _settings.FontSize;
+                         || changed.FontSize != _settings.FontSize || schemesChanged
+                         || !ThemeCatalog.SameName(changed.DarkTheme, _settings.DarkTheme)
+                         || !ThemeCatalog.SameName(changed.LightTheme, _settings.LightTheme);
+        _settings.DarkTheme = changed.DarkTheme;
+        _settings.LightTheme = changed.LightTheme;
+        if (schemesChanged)
+        {
+            _settings.Schemes = (System.Text.Json.Nodes.JsonArray)changed.Schemes.DeepClone();
+            Themes = new ThemeCatalog(_settings.Schemes);
+        }
         _settings.DefaultProfile = changed.DefaultProfile;
         _settings.FontFamily = changed.FontFamily;
         _settings.FontSize = Math.Clamp(changed.FontSize, PaneSession.MinFontSize, PaneSession.MaxFontSize);
@@ -808,37 +824,57 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
 
         _shortcuts.CtrlDSplits = _settings.CtrlDSplits;
         Application.Current.Resources["SplitRightGesture"] = _settings.CtrlDSplits ? "Ctrl+D" : "Alt+Shift+=";
-        SettingsChanged?.Invoke();
 
-        if (!appearance) return;
-        Application.Current.ThemeMode = _settings.Theme switch
+        if (appearance)
         {
-            "light" => ThemeMode.Light,
-            "dark" => ThemeMode.Dark,
-            _ => ThemeMode.System,
-        };
-        _fontFamily = ResolveFont(_settings.FontFamily);
-        ApplyTerminalAppearance();
+            Application.Current.ThemeMode = _settings.Theme switch
+            {
+                "light" => ThemeMode.Light,
+                "dark" => ThemeMode.Dark,
+                _ => ThemeMode.System,
+            };
+            _fontFamily = ResolveFont(_settings.FontFamily);
+            ApplyAppearance();
+        }
+        // Last, so listeners (the Settings window) see the theme that's now on screen.
+        SettingsChanged?.Invoke();
     }
 
+    /// <summary>Every theme that can be picked: "Windows", the built-ins and settings.json's custom schemes.</summary>
+    public ThemeCatalog Themes { get; private set; }
+
+    /// <summary>The theme on screen now.</summary>
+    public ColorScheme CurrentScheme => _scheme;
+
     /// <summary>
-    /// With the theme set to follow Windows, a light/dark switch in Windows recolours the terminals
-    /// too (the chrome follows by itself through ThemeMode.System).
+    /// Windows changed something the theme depends on. With Mode following Windows, a light/dark
+    /// switch swaps to the other theme of the pair. An accent change or a contrast theme turning on
+    /// or off rebuilds the colours. Background priority lets WPF swap its own Fluent theme first,
+    /// since the scheme's colours are built from it.
     /// </summary>
     private void OnUserPreferenceChanged(object? sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
     {
-        if (e.Category != Microsoft.Win32.UserPreferenceCategory.General || _settings.Theme != "system") return;
-        _window.Dispatcher.BeginInvoke(() =>
+        if (e.Category is not (Microsoft.Win32.UserPreferenceCategory.General or Microsoft.Win32.UserPreferenceCategory.Accessibility
+            or Microsoft.Win32.UserPreferenceCategory.Color)) return;
+        _window.Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
         {
-            if (!_shuttingDown && TerminalThemes.SystemUsesLightTheme() != _light) ApplyTerminalAppearance();
+            if (_shuttingDown) return;
+            var modeChanged = _settings.Theme == "system" && TerminalThemes.SystemUsesLightTheme() != _light;
+            if (modeChanged || e.Category != Microsoft.Win32.UserPreferenceCategory.General) ApplyAppearance();
         });
     }
 
-    private void ApplyTerminalAppearance()
+    /// <summary>The theme on screen changed (a setting, or Windows switching light/dark).</summary>
+    public event Action? AppearanceChanged;
+
+    /// <summary>Shows the theme for the current mode in the window and every terminal.</summary>
+    private void ApplyAppearance()
     {
         _light = TerminalThemes.IsLight(_settings.Theme);
-        var theme = _light ? TerminalThemes.Light : TerminalThemes.Dark;
-        var background = TerminalThemes.BackgroundOf(_light);
+        _scheme = Themes.Resolve(_light ? _settings.LightTheme : _settings.DarkTheme, _light);
+        AppTheme.Apply(_scheme);
+        var theme = TerminalThemes.From(_scheme);
+        var background = TerminalThemes.BackgroundOf(_scheme);
         foreach (var ws in Workspaces)
         {
             foreach (var slot in ws.Slots.Values) slot.Background = background;
@@ -925,6 +961,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             pane.HasUnread = false;
             _selected.RefreshSummary();
         }
+        AppearanceChanged?.Invoke();
     }
 
     private void OnToastActivated(string? workspaceId, string? paneId)

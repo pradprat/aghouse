@@ -14,8 +14,14 @@ public sealed class AppSettings
     public int FontSize { get; set; } = 11;
     public bool RestoreSession { get; set; } = true;
     public bool Toasts { get; set; } = true;
-    /// <summary>"system" | "dark" | "light"</summary>
+    /// <summary>"system" | "dark" | "light": which of the two themes below shows (Settings calls it Mode).</summary>
     public string Theme { get; set; } = "system";
+    /// <summary>The theme in dark mode: "Windows" (Mica and the Windows accent), a built-in, or a custom scheme's name.</summary>
+    public string DarkTheme { get; set => field = OrWindows(value); } = Core.Themes.BuiltInSchemes.WindowsName;
+    /// <summary>The theme in light mode.</summary>
+    public string LightTheme { get; set => field = OrWindows(value); } = Core.Themes.BuiltInSchemes.WindowsName;
+    /// <summary>Custom schemes in Windows Terminal's shape (plus an optional "accent"), typed by hand or imported.</summary>
+    public JsonArray Schemes { get; set => field = value ?? []; } = [];
     /// <summary>Ctrl+D splits right (cmux's ⌘D). False gives Ctrl+D back to the terminal (EOF / exit).</summary>
     public bool CtrlDSplits { get; set; } = true;
     /// <summary>Flash the taskbar button when a pane needs you while aghouse is in the background.</summary>
@@ -34,7 +40,15 @@ public sealed class AppSettings
     /// </summary>
     public bool AllowInputToAgentPanes { get; set; }
 
-    public AppSettings Clone() => (AppSettings)MemberwiseClone();
+    public AppSettings Clone()
+    {
+        var copy = (AppSettings)MemberwiseClone();
+        copy.Schemes = (JsonArray)Schemes.DeepClone();
+        return copy;
+    }
+
+    private static string OrWindows(string? name) =>
+        string.IsNullOrWhiteSpace(name) ? Core.Themes.BuiltInSchemes.WindowsName : name.Trim();
 }
 
 /// <summary>Why settings.json couldn't be used. <see cref="Summary"/> fits the sidebar footer; <see cref="Detail"/> is the parser's message.</summary>
