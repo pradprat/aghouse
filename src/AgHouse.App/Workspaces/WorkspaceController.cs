@@ -371,8 +371,10 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             [AgEnv.PaneToken] = token,
             [AgEnv.WorkspaceId] = ws.Id,
             ["TERM_PROGRAM"] = "aghouse",
-            // aghouse.exe (the CLI) lives next to the app.
-            ["PATH"] = AppContext.BaseDirectory.TrimEnd('\\') + ";" + Environment.GetEnvironmentVariable("PATH"),
+            // aghouse.exe (the CLI) lives next to the app. The rest comes from the machine's current
+            // PATH, not this process's launch-time copy, so a tool installed since aghouse started
+            // is visible in a new pane (see PanePath).
+            ["PATH"] = PanePath.ForPane(AppContext.BaseDirectory),
         };
         // Launched from a Claude Code shell, the app carries that session's markers and NO_COLOR.
         foreach (var name in InheritedEnv.ToUnset(Environment.GetEnvironmentVariables())) env[name] = null;
