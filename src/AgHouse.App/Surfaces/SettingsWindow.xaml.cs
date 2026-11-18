@@ -144,20 +144,30 @@ public partial class SettingsWindow : Window
     {
         var status = ClaudeHooks.Inspect();
         // Word joiners keep the path in one piece when the line wraps (WPF would break it at a backslash).
-        var path = ClaudeHooks.DefaultPath.Replace(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "~")
-            .Replace("\\", "⁠\\⁠").Replace(".", "⁠.⁠");
-        ClaudeStatus.Text = status.State switch
+        var path = Unbroken(ClaudeHooks.DefaultPath);
+        ClaudeStatus.Text = status switch
         {
-            HookState.Connected =>
+            { State: HookState.Connected } =>
                 "Connected. A Claude Code session in any pane shows “Working” while it's busy and “Needs you” when it asks or finishes.",
-            HookState.Partial =>
+            // Every hook runs aghouse, just another copy of it: that works, so don't call it "partly connected".
+            { OtherCopyPath: { } other } =>
+                $"Connected through another copy of aghouse ({Unbroken(other)}). Use this copy to point the hooks at this one instead.",
+            { OtherCopy: not null } =>
+                "Connected through whichever aghouse is on PATH (an older hook). Use this copy to point the hooks at this one by its full path.",
+            { State: HookState.Partial } =>
                 $"Partly connected: {string.Join(", ", status.Missing)} {(status.Missing.Count == 1 ? "doesn't" : "don't")} run aghouse yet. Connecting adds {(status.Missing.Count == 1 ? "it" : "them")} to {path}.",
-            HookState.NotConnected =>
+            { State: HookState.NotConnected } =>
                 $"Not connected. Connecting adds aghouse's hook to {path} so Claude Code can say when it needs you. Your other settings stay as they are.",
             _ => $"{path} isn't valid JSON, so aghouse won't change it. {status.Problem}",
         };
+        ConnectClaude.Content = status.OtherCopy is not null ? "Use this copy" : "Connect Claude Code";
         ConnectClaude.Visibility = status.State is HookState.NotConnected or HookState.Partial ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    /// <summary>A path with "~" for the profile folder, kept in one piece (word joiners) where WPF would break it at a backslash.</summary>
+    private static string Unbroken(string path) =>
+        path.Replace(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "~", StringComparison.OrdinalIgnoreCase)
+            .Replace("\\", "⁠\\⁠").Replace(".", "⁠.⁠");
 
     private void ConnectClaude_Click(object sender, RoutedEventArgs e)
     {
@@ -178,10 +188,15 @@ public partial class SettingsWindow : Window
                 "aghouse", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
-        var message = $"aghouse will add “{ClaudeHooks.Command}” to these Claude Code hooks in {ClaudeHooks.DefaultPath}:\n\n"
-                      + string.Join("\n", status.Missing.Select(m => "•  " + m))
-                      + "\n\nYour other settings and hooks stay as they are, and the file is copied to settings.json.aghouse-backup first. "
-                      + "Claude Code sessions started after this report to aghouse.\n\nAdd the hooks?";
+        var message = status.OtherCopy is { } other
+            ? $"aghouse will change these Claude Code hooks in {ClaudeHooks.DefaultPath} from “{other}” to “{ClaudeHooks.Command}”:\n\n"
+              + string.Join("\n", status.Missing.Select(m => "•  " + m))
+              + "\n\nYour other settings and hooks stay as they are, and the file is copied to settings.json.aghouse-backup first. "
+              + "Claude Code sessions started after this run this copy of aghouse.\n\nChange the hooks?"
+            : $"aghouse will add “{ClaudeHooks.Command}” to these Claude Code hooks in {ClaudeHooks.DefaultPath}:\n\n"
+              + string.Join("\n", status.Missing.Select(m => "•  " + m))
+              + "\n\nYour other settings and hooks stay as they are, and the file is copied to settings.json.aghouse-backup first. "
+              + "Claude Code sessions started after this report to aghouse.\n\nAdd the hooks?";
         if (MessageBox.Show(owner, message, "aghouse", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No)
             != MessageBoxResult.Yes) return false;
         try

@@ -49,12 +49,15 @@ public partial class WelcomeView : UserControl
     private void RefreshClaude()
     {
         var status = ClaudeHooks.Inspect();
-        ClaudeStatus.Text = status.State switch
+        ClaudeStatus.Text = status switch
         {
-            HookState.Connected => "Connected. Its panes will say when it's working and when it needs you.",
-            HookState.Unreadable => "~/.claude/settings.json isn't valid JSON, so aghouse won't change it.",
+            { State: HookState.Connected } => "Connected. Its panes will say when it's working and when it needs you.",
+            { OtherCopy: not null } => "Connected through another copy of aghouse. Its panes will say when it's working and when it needs you.",
+            { State: HookState.Unreadable } => "~/.claude/settings.json isn't valid JSON, so aghouse won't change it.",
             _ => "Connect it so a pane says “Needs you” when Claude Code asks for permission or finishes. aghouse asks before it changes anything.",
         };
-        ConnectClaude.Visibility = status.State is HookState.NotConnected or HookState.Partial ? Visibility.Visible : Visibility.Collapsed;
+        // Another copy already works; pointing the hooks at this one is a Settings › Integrations matter, not a first-run step.
+        ConnectClaude.Visibility = status.State is HookState.NotConnected or HookState.Partial && status.OtherCopy is null
+            ? Visibility.Visible : Visibility.Collapsed;
     }
 }

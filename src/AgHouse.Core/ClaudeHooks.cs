@@ -65,8 +65,22 @@ public static partial class ClaudeHooks
     private static readonly JsonDocumentOptions ReadOptions = new() { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip };
     private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
 
-    /// <summary><paramref name="Missing"/>: the events that don't run <see cref="Command"/> yet (absent, or an older command).</summary>
-    public sealed record Status(HookState State, IReadOnlyList<string> Missing, string? Problem);
+    /// <summary>
+    /// <paramref name="Missing"/>: the events that don't run <see cref="Command"/> yet (absent, or an older command).
+    /// <paramref name="OtherCopy"/>: every event already runs an aghouse command, just not this copy's (another
+    /// install, a dev build, the portable zip, or the older bare "aghouse claude-hook"). Notifications still arrive,
+    /// because every copy talks to the same pipe; State stays <see cref="HookState.Partial"/>, and connecting
+    /// points the hooks at this copy.
+    /// </summary>
+    public sealed record Status(HookState State, IReadOnlyList<string> Missing, string? Problem, string? OtherCopy = null)
+    {
+        /// <summary>Claude Code reaches aghouse, through this copy or another.</summary>
+        public bool Reaches => State == HookState.Connected || OtherCopy is not null;
+
+        /// <summary>The other copy's aghouse.exe path, or null for the bare "aghouse claude-hook" (whatever is on PATH).</summary>
+        public string? OtherCopyPath => OtherCopy is null || OtherCopy.Equals(BareCommand, StringComparison.OrdinalIgnoreCase) ? null
+            : Regex.Replace(OtherCopy, @"\s+claude-hook\s*$", "", RegexOptions.IgnoreCase).Trim().Trim('"', '\'').Replace('/', '\\');
+    }
 
     public static Status Inspect(string? path = null, string? command = null)
     {
@@ -87,7 +101,11 @@ public static partial class ClaudeHooks
         var missing = Events.Where(e => !OurCommands(root, e).Any(c => c.GetValue<string>() == command)).ToList();
         var none = Events.All(e => !OurCommands(root, e).Any());
         var state = missing.Count == 0 ? HookState.Connected : none ? HookState.NotConnected : HookState.Partial;
-        return new Status(state, missing, null);
+        // Every event runs aghouse, only not this copy: say which copy, not "missing".
+        var other = missing.Count > 0 && Events.All(e => OurCommands(root, e).Any())
+            ? OurCommands(root, missing[0]).Select(c => c.GetValue<string>()).First(c => c != command).Trim()
+            : null;
+        return new Status(state, missing, null, other);
     }
 
     /// <summary>

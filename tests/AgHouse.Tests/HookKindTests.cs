@@ -18,6 +18,63 @@ public class HookKindTests
         Assert.Equal(finished, ClaudeHooks.IsFinished(eventName, type, message));
 }
 
+/// <summary>Hooks that all run aghouse, only another copy of it, are "connected through another copy", not "missing".</summary>
+public class HookOtherCopyTests
+{
+    private static System.Text.Json.Nodes.JsonObject AllEventsRun(string command) =>
+        new()
+        {
+            ["hooks"] = new System.Text.Json.Nodes.JsonObject(ClaudeHooks.Events.Select(e =>
+                new KeyValuePair<string, System.Text.Json.Nodes.JsonNode?>(e, System.Text.Json.Nodes.JsonNode.Parse(
+                    $$"""[ { "hooks": [ { "type": "command", "command": {{System.Text.Json.JsonSerializer.Serialize(command)}} } ] } ]""")))),
+        };
+
+    [Fact]
+    public void AnotherCopy_IsNamed_AndStillReaches()
+    {
+        var status = ClaudeHooks.Inspect(AllEventsRun("C:/Users/me/AppData/Local/Programs/aghouse/aghouse.exe claude-hook"), "D:/dev/aghouse.exe claude-hook");
+        Assert.Equal(HookState.Partial, status.State); // connecting still has something to do
+        Assert.True(status.Reaches);
+        Assert.Equal(@"C:\Users\me\AppData\Local\Programs\aghouse\aghouse.exe", status.OtherCopyPath);
+    }
+
+    [Fact]
+    public void QuotedPath_LosesItsQuotes()
+    {
+        var status = ClaudeHooks.Inspect(AllEventsRun("\"C:/Program Files/aghouse/aghouse.exe\" claude-hook"), "D:/dev/aghouse.exe claude-hook");
+        Assert.Equal(@"C:\Program Files\aghouse\aghouse.exe", status.OtherCopyPath);
+    }
+
+    [Fact]
+    public void BareCommand_IsAnotherCopyWithoutAPath()
+    {
+        var status = ClaudeHooks.Inspect(AllEventsRun(ClaudeHooks.BareCommand), "D:/dev/aghouse.exe claude-hook");
+        Assert.NotNull(status.OtherCopy);
+        Assert.Null(status.OtherCopyPath);
+        Assert.True(status.Reaches);
+    }
+
+    [Fact]
+    public void SomeEventsMissing_IsPartial_NotAnotherCopy()
+    {
+        var root = AllEventsRun("C:/x/aghouse.exe claude-hook");
+        root["hooks"]!.AsObject().Remove("Stop");
+        var status = ClaudeHooks.Inspect(root, "D:/dev/aghouse.exe claude-hook");
+        Assert.Equal(HookState.Partial, status.State);
+        Assert.Null(status.OtherCopy);
+        Assert.False(status.Reaches);
+    }
+
+    [Fact]
+    public void ThisCopy_IsConnected()
+    {
+        const string mine = "D:/dev/aghouse.exe claude-hook";
+        var status = ClaudeHooks.Inspect(AllEventsRun(mine), mine);
+        Assert.Equal(HookState.Connected, status.State);
+        Assert.Null(status.OtherCopy);
+    }
+}
+
 public class ProgramNamesTests
 {
     [Theory]

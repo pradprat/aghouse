@@ -184,12 +184,13 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         };
     }
 
-    private bool _hooksConnected = AgHouse.Core.ClaudeHooks.Inspect().State == AgHouse.Core.HookState.Connected;
+    // Hooks that run another copy of aghouse still reach this one (same pipe): no setup hint for them.
+    private bool _hooksConnected = AgHouse.Core.ClaudeHooks.Inspect().Reaches;
 
     /// <summary>Re-reads whether Claude Code is connected (after Settings or the welcome screen connected it).</summary>
     public void RefreshFooter()
     {
-        _hooksConnected = AgHouse.Core.ClaudeHooks.Inspect().State == AgHouse.Core.HookState.Connected;
+        _hooksConnected = AgHouse.Core.ClaudeHooks.Inspect().Reaches;
         UpdateFooter();
     }
 

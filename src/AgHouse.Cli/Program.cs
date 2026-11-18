@@ -749,7 +749,9 @@ internal static class Program
                 return Fail($"{path} isn't valid JSON, so aghouse won't change it: {status.Problem}");
         }
 
-        Console.WriteLine($"aghouse will add \"{AgHouse.Core.ClaudeHooks.Command}\" to these Claude Code hooks in {path}:");
+        Console.WriteLine(status.OtherCopy is { } other
+            ? $"aghouse will change these Claude Code hooks in {path} from \"{other}\" to \"{AgHouse.Core.ClaudeHooks.Command}\":"
+            : $"aghouse will add \"{AgHouse.Core.ClaudeHooks.Command}\" to these Claude Code hooks in {path}:");
         foreach (var e in status.Missing) Console.WriteLine($"  {e}");
         Console.WriteLine("Your other settings and hooks stay as they are. The file is copied to settings.json.aghouse-backup first.");
         if (!yes)
@@ -774,11 +776,13 @@ internal static class Program
     private static int ClaudeHooksStatus()
     {
         var status = AgHouse.Core.ClaudeHooks.Inspect();
-        Console.WriteLine(status.State switch
+        Console.WriteLine(status switch
         {
-            AgHouse.Core.HookState.Connected => "connected",
-            AgHouse.Core.HookState.Partial => $"partial (missing: {string.Join(", ", status.Missing)})",
-            AgHouse.Core.HookState.NotConnected => "not connected",
+            { State: AgHouse.Core.HookState.Connected } => "connected",
+            // Exit code stays 1: 'hooks install' would still change them (to this copy).
+            { OtherCopy: { } other } => $"connected through another copy of aghouse ({other}); 'aghouse hooks install claude' points them at this one",
+            { State: AgHouse.Core.HookState.Partial } => $"partial (missing: {string.Join(", ", status.Missing)})",
+            { State: AgHouse.Core.HookState.NotConnected } => "not connected",
             _ => $"unreadable: {status.Problem}",
         });
         return status.State == AgHouse.Core.HookState.Connected ? 0 : 1;
