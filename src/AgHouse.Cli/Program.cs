@@ -277,15 +277,23 @@ internal static class Program
         new("claude-hook", "Integrations", "claude-hook", "For Claude Code hooks: reads hook JSON on stdin",
             c => ClaudeHookAsync(c.CurrentPane)),
 
-        new("hooks", "Integrations", "hooks install|status|print claude [--yes]",
-            "Connect Claude Code (~/.claude/settings.json; install asks first)",
+        new("hooks", "Integrations", "hooks install|status|print claude|opencode [--yes]",
+            "Connect Claude Code (~/.claude/settings.json) or OpenCode (a plugin folder); install asks first",
             c => Task.FromResult((c.Pos(0), c.Pos(1)) switch
             {
                 ("print", "claude") => Print(ClaudeHooksSnippet.Replace("\"aghouse claude-hook\"", JsonSerializer.Serialize(AgHouse.Core.ClaudeHooks.Command, new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))),
                 ("install", "claude") => InstallClaudeHooks(c.Has("yes")),
                 ("status", "claude") => ClaudeHooksStatus(),
-                _ => Fail("Usage: aghouse hooks print|install|status claude"),
-            })),
+                ("print", "opencode") => Print(AgHouse.Core.OpenCodePlugin.Script()),
+                ("install", "opencode") => InstallOpenCodePlugin(c.Has("yes")),
+                ("status", "opencode") => OpenCodePluginStatus(),
+                _ => Fail("Usage: aghouse hooks print|install|status claude|opencode"),
+            }))
+            {
+                Details = "opencode: OpenCode 2 loads plugins from ~/.config/opencode/plugins. install writes aghouse's own folder there " +
+                          "(aghouse/tui.js and package.json) and changes nothing else; print shows the tui.js it writes. " +
+                          "OpenCode sessions started from then on show Working and Needs you in the sidebar.",
+            },
     ];
 
     private static async Task<int> Main(string[] args)
@@ -836,6 +844,56 @@ internal static class Program
         {
             return Fail($"Couldn't change {path}: {ex.Message}");
         }
+    }
+
+    /// <summary>Writes aghouse's OpenCode plugin folder after saying where and asking.</summary>
+    private static int InstallOpenCodePlugin(bool yes)
+    {
+        var dir = AgHouse.Core.OpenCodePlugin.DefaultDir;
+        var status = AgHouse.Core.OpenCodePlugin.Inspect();
+        switch (status.State)
+        {
+            case AgHouse.Core.HookState.Connected:
+                Console.WriteLine($"OpenCode is already connected ({dir}).");
+                return 0;
+            case AgHouse.Core.HookState.Unreadable:
+                return Fail($"aghouse won't change {dir}: {status.Problem}");
+        }
+
+        Console.WriteLine(status.State == AgHouse.Core.HookState.Partial
+            ? $"aghouse will update its OpenCode plugin in {dir}" + (status.OtherCopy is { } other ? $" (it runs {other} now)." : ".")
+            : $"aghouse will add its OpenCode plugin: a folder of its own, {dir}.");
+        Console.WriteLine($"It runs \"{AgHouse.Core.OpenCodePlugin.Executable}\" to report OpenCode's state. opencode.json and your other plugins stay as they are.");
+        if (!yes)
+        {
+            if (Console.IsInputRedirected) return Fail("Add --yes to make the change without asking.");
+            Console.Write("Add it? [y/N] ");
+            if (Console.ReadLine()?.Trim().ToLowerInvariant() is not ("y" or "yes")) { Console.WriteLine("Nothing changed."); return 1; }
+        }
+        try
+        {
+            AgHouse.Core.OpenCodePlugin.Install();
+            Console.WriteLine("Connected. OpenCode sessions started from now on will report to aghouse; delete the folder to remove it.");
+            return 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return Fail($"Couldn't write {dir}: {ex.Message}");
+        }
+    }
+
+    private static int OpenCodePluginStatus()
+    {
+        var status = AgHouse.Core.OpenCodePlugin.Inspect();
+        Console.WriteLine(status switch
+        {
+            { State: AgHouse.Core.HookState.Connected } => "connected",
+            { OtherCopy: { } other } => $"connected through another copy of aghouse ({other}); 'aghouse hooks install opencode' points it at this one",
+            { State: AgHouse.Core.HookState.Partial } => "outdated; 'aghouse hooks install opencode' updates it",
+            { State: AgHouse.Core.HookState.NotConnected } => "not connected",
+            _ => $"unreadable: {status.Problem}",
+        });
+        return status.State == AgHouse.Core.HookState.Connected ? 0 : 1;
     }
 
     private static int ClaudeHooksStatus()

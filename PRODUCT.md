@@ -27,6 +27,7 @@ aghouse is the Windows-native take on the cmux idea. The UI uses WPF Fluent, Mic
 - The app is driven from the keyboard first, with full shortcut coverage. Mouse paths exist for closing panes, renaming and the context menu.
 - The `aghouse` CLI talks to the app over a per-user named pipe. Every pane has it on `PATH` and gets `AGHOUSE_PANE_ID`, so agents and scripts can control the app from inside a pane.
 - Claude Code integration: Settings › Integrations or `aghouse hooks install claude` adds aghouse's hook to `~/.claude/settings.json`, after asking and with a backup. It routes Notification, Stop, UserPromptSubmit and PostToolUse events to the pane that ran them. `aghouse hooks print claude` still prints the snippet for a hand merge.
+- OpenCode integration: Settings › Integrations or `aghouse hooks install opencode` writes aghouse's own plugin folder, `~/.config/opencode/plugins/aghouse`, after asking. OpenCode 2 runs its `tui.js` inside the pane, where it reports Working, a permission or question (Needs you) and a finished run through the CLI. Nothing else in OpenCode's config changes.
 - File locations: settings at `%APPDATA%\aghouse\settings.json` (edited by the Settings window, changes apply at once), session at `%APPDATA%\aghouse\session.json` (layout, cwd and window placement are restored, scrollback is not), log at `%LOCALAPPDATA%\aghouse\aghouse.log`.
 
 ## Capabilities and Constraints

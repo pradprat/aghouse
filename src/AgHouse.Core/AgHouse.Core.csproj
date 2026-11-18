@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- aghouse's OpenCode plugin (OpenCodePlugin writes it into OpenCode's plugin folder). -->
+    <EmbeddedResource Include="Integrations\opencode-tui.js" LogicalName="AgHouse.Core.opencode-tui.js" />
+  </ItemGroup>
+
 </Project>

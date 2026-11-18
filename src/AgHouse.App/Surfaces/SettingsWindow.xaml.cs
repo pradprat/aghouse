@@ -50,6 +50,7 @@ public partial class SettingsWindow : Window
         }
 
         RefreshClaude();
+        RefreshOpenCode();
         Nav.SelectedIndex = (int)page;
         _loading = false;
 
@@ -114,7 +115,7 @@ public partial class SettingsWindow : Window
         {
             panel.Visibility = name == tag ? Visibility.Visible : Visibility.Collapsed;
         }
-        if (tag == "Integrations") RefreshClaude(); // the user may have edited the file meanwhile
+        if (tag == "Integrations") { RefreshClaude(); RefreshOpenCode(); } // the user may have changed the files meanwhile
     }
 
     /// <summary>Any control changed: apply it now, then write settings.json.</summary>
@@ -277,6 +278,53 @@ public partial class SettingsWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
+    }
+
+    // ───────────── OpenCode ─────────────
+
+    private void RefreshOpenCode()
+    {
+        var status = OpenCodePlugin.Inspect();
+        var dir = Unbroken(OpenCodePlugin.DefaultDir);
+        OpenCodeStatus.Text = status switch
+        {
+            { State: HookState.Connected } =>
+                "Connected. An OpenCode session in any pane shows “Working” while it runs and “Needs you” when it asks or finishes.",
+            { OtherCopy: { } other } =>
+                $"Connected through another copy of aghouse ({Unbroken(other.Replace('/', '\\'))}). Use this copy to point the plugin at this one instead.",
+            { State: HookState.Partial } =>
+                "Connected with an older version of aghouse's plugin. Update it to get the current behaviour.",
+            { State: HookState.NotConnected } =>
+                $"Not connected. Connecting adds aghouse's plugin as a folder of its own, {dir}, so OpenCode 2 can say when it's working and when it needs you. opencode.json and your other plugins stay as they are.",
+            _ => $"aghouse won't change {dir}: {status.Problem}",
+        };
+        ConnectOpenCode.Content = status.State == HookState.Partial ? (status.OtherCopy is not null ? "Use this copy" : "Update") : "Connect OpenCode";
+        ConnectOpenCode.Visibility = status.State is HookState.NotConnected or HookState.Partial ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ConnectOpenCode_Click(object sender, RoutedEventArgs e)
+    {
+        var status = OpenCodePlugin.Inspect();
+        var message = (status.State == HookState.Partial
+                ? $"aghouse will update its OpenCode plugin in {OpenCodePlugin.DefaultDir}."
+                : $"aghouse will add its OpenCode plugin as a folder of its own:\n\n{OpenCodePlugin.DefaultDir}")
+            + $"\n\nIt runs “{OpenCodePlugin.Executable}” to report OpenCode's state to the pane it runs in. "
+            + "opencode.json and your other plugins stay as they are; delete the folder to remove it. "
+            + "OpenCode sessions started after this report to aghouse.\n\n"
+            + (status.State == HookState.Partial ? "Update the plugin?" : "Add the plugin?");
+        if (MessageBox.Show(this, message, "aghouse", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No)
+            != MessageBoxResult.Yes) return;
+        try
+        {
+            OpenCodePlugin.Install();
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            Log.Write($"opencode plugin: {ex.Message}");
+            MessageBox.Show(this, $"aghouse couldn't write {OpenCodePlugin.DefaultDir}.\n\n{ex.Message}", "aghouse",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        RefreshOpenCode();
     }
 
     // ───────────── About ─────────────

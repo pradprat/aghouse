@@ -406,6 +406,16 @@
                             </DockPanel>
                         </Border>
                         <Border Style="{StaticResource Row}">
+                            <DockPanel>
+                                <Button x:Name="ConnectOpenCode" DockPanel.Dock="Right" Content="Connect OpenCode" VerticalAlignment="Center"
+                                        Click="ConnectOpenCode_Click" />
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Text="OpenCode" Style="{StaticResource Label}" />
+                                    <TextBlock x:Name="OpenCodeStatus" Style="{StaticResource Help}" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                        <Border Style="{StaticResource Row}">
                             <StackPanel>
                                 <TextBlock Text="Other agents and scripts" Style="{StaticResource Label}" />
                                 <TextBlock Style="{StaticResource Help}">
