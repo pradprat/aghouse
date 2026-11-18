@@ -78,7 +78,7 @@ A pane with two or more tabs shows them in that same header, with a **+** for an
 
 **Pane zoom** (Ctrl+Shift+Enter) fills the workspace with one pane while the others keep running out of sight. The header says how many are hidden, and if one of them needs you it says so ("Needs you in GitHub (2) · Ctrl+Shift+U"); going to a hidden pane ends the zoom. **Find** (Ctrl+Shift+F) opens in the pane's header and lists the matching lines of its output, newest first; Enter copies the selected line. **Text size** changes for one pane at a time and shows as "110%" in its header.
 
-The footer's "2 waiting" line is a button: it opens the waiting list, which lists every pane that needs you, newest first, and the last 20 requests you already handled. Click a row to go there.
+The footer's "2 waiting" line is a button: it opens the waiting list, which lists every pane that needs you (agents asking something first, then agents that finished, each newest first) and the last 20 requests you already handled. Click a row to go there.
 
 If something is still running in a pane (an agent, a build), **✕** and Ctrl+Shift+W ask before ending it. A pane sitting at its prompt closes immediately, and so does `aghouse close-pane`, which never asks. WSL processes run outside Windows' process list, so WSL panes don't get this warning. Closing the last pane doesn't quit aghouse: a fresh workspace opens in the same folder. Use the window's close button to quit. If programs are still running anywhere, aghouse lists them and asks first, because a restored session brings back layout and folders, not running programs.
 
@@ -99,7 +99,7 @@ aghouse rename-pane "build box" | --clear       # also rename-tab
 aghouse restart-pane [id] [--profile cmd] [--cwd DIR]   # a fresh shell in its place; prints the new pane id
 aghouse profiles                                # shells you can open (ids for --profile)
 aghouse waiting                                 # panes that need you, then handled requests (JSON)
-aghouse notify --title "Build" --body "Done"
+aghouse notify --title "Build" --body "Done" [--finished]   # --finished: done, not asking; waits behind panes that ask
 
 # Shell input and output
 aghouse send-text "npm test" --enter [--pane ID] [--wait-for "passing|failing" --timeout 300]

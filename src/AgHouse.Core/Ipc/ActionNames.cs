@@ -27,7 +27,7 @@ public static class ActionNames
             $"select-workspace-{i}", i == 9 ? "Select the last workspace" : $"Select workspace {i}", $"Ctrl+{i}")),
         new("next-workspace", "Select the next workspace", "Ctrl+Tab"),
         new("previous-workspace", "Select the previous workspace", "Ctrl+Shift+Tab"),
-        new("jump-to-unread", "Focus the pane that most recently asked for you", "Ctrl+Shift+U"),
+        new("jump-to-unread", "Focus the pane at the top of the waiting list: one asking something before one that finished, newest first", "Ctrl+Shift+U"),
         new("rename-workspace", "Start renaming the selected workspace in the sidebar", "Ctrl+Shift+R"),
         new("close-workspace", "Close the selected workspace (asks if something is running)", "Ctrl+Alt+W"),
         new("copy", "Copy the focused pane's selection", "Ctrl+Shift+C"),

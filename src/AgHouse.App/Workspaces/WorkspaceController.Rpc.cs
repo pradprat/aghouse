@@ -114,7 +114,7 @@ public sealed partial class WorkspaceController
                 var title = r.Get("title");
                 var body = r.Get("body");
                 MarkAgent(r);
-                Notify(pane, title, body);
+                Notify(pane, title, body, finished: r.Get("finished") == "true");
                 return null;
             }
 
@@ -356,7 +356,7 @@ public sealed partial class WorkspaceController
         return new JsonObject { ["workspaces"] = workspaces };
     }
 
-    /// <summary>What the waiting list shows: panes that need you now (newest first), then handled requests.</summary>
+    /// <summary>What the waiting list shows: panes that need you now (asking, then finished; newest first), then handled requests.</summary>
     private JsonObject WaitingJson()
     {
         var waiting = new JsonArray();
@@ -369,6 +369,7 @@ public sealed partial class WorkspaceController
                 ["paneId"] = pane.Id,
                 ["pane"] = pane.Label,
                 ["message"] = pane.AttentionMessage,
+                ["finished"] = pane.AttentionFinished,
                 ["since"] = pane.UnreadAt.ToString("O"),
             });
         }

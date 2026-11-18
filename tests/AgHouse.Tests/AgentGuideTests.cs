@@ -45,7 +45,7 @@ public class AgentGuideTests
     {
         var md = AgentGuide.Markdown();
         Assert.StartsWith("## aghouse", md);
-        Assert.Contains("| `aghouse notify --body \"<message>\"` |", md);
+        Assert.Contains("| `aghouse notify --body \"<message>\" [--finished]` |", md);
         Assert.Contains("AGHOUSE_PANE_ID", md);
     }
 }

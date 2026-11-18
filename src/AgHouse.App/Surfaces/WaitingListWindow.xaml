@@ -22,7 +22,7 @@
 
     <StackPanel Margin="8,10,8,8">
         <DockPanel Margin="10,0,6,4">
-            <TextBlock x:Name="JumpHint" DockPanel.Dock="Right" Text="Ctrl+Shift+U jumps to the newest" FontSize="11" VerticalAlignment="Center"
+            <TextBlock x:Name="JumpHint" DockPanel.Dock="Right" Text="Ctrl+Shift+U jumps to the top one" FontSize="11" VerticalAlignment="Center"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             <TextBlock Text="Waiting" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
         </DockPanel>

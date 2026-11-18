@@ -61,7 +61,7 @@ public sealed class Workspace : ObservableObject
     public bool HasUnread { get => _hasUnread; private set => Set(ref _hasUnread, value); }
 
     /// <summary>
-    /// The newest message from a pane that still needs the user. Derived from the panes, so it clears
+    /// The first message (asking before finished, then newest) from a pane that still needs the user. Derived from the panes, so it clears
     /// as soon as nothing is waiting: the sidebar never shows a request that was already handled.
     /// </summary>
     public string? LastMessage
@@ -77,7 +77,7 @@ public sealed class Workspace : ObservableObject
     /// <summary>" · message" after the row's "Needs you", or empty when the pane didn't say why (a bell).</summary>
     public string WaitingSuffix { get => _waitingSuffix; private set => Set(ref _waitingSuffix, value); }
 
-    /// <summary>Every waiting message, newest first, one per line (the sidebar tooltip).</summary>
+    /// <summary>Every waiting message, asking first, then newest first, one per line (the sidebar tooltip).</summary>
     public string? WaitingMessages { get => _waitingMessages; private set => Set(ref _waitingMessages, value); }
 
     /// <summary>How many panes in this workspace need the user.</summary>
@@ -264,7 +264,7 @@ public sealed class Workspace : ObservableObject
     /// <summary>Recompute everything the sidebar shows from the panes.</summary>
     public void RefreshSummary()
     {
-        var waiting = Panes.Values.Where(p => p.HasUnread).OrderByDescending(p => p.UnreadAt).ToList();
+        var waiting = PaneSession.ByUrgency(Panes.Values.Where(p => p.HasUnread)).ToList();
         HasUnread = waiting.Count > 0;
         var messages = waiting.Select(p => p.AttentionMessage).OfType<string>().ToList();
         LastMessage = messages.FirstOrDefault();

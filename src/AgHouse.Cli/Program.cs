@@ -186,14 +186,15 @@ internal static class Program
                 : CallAsync(Methods.Log, new() { ["text"] = c.Rest(), ["level"] = c.Opt("level"), ["workspace"] = c.Opt("workspace"), ["pane"] = c.Pane })),
 
         // ───────────── Notifications ─────────────
-        new("notify", "Notifications", "notify [--title T] [--body B] [--pane ID]",
-            "Mark a pane \"Needs you\"; a toast too if aghouse isn't in front",
+        new("notify", "Notifications", "notify [--title T] [--body B] [--pane ID] [--finished]",
+            "Mark a pane \"Needs you\"; a toast too if aghouse isn't in front. --finished: the work is done, so it waits behind panes that are asking something",
             c => CallAsync(Methods.Notify, new()
             {
                 ["title"] = c.Opt("title"),
                 ["body"] = c.Opt("body") ?? (c.Positional.Count > 0 ? c.Rest() : null),
                 ["pane"] = c.Pane,
-            })) { Example = "aghouse notify --title Build --body \"Done, 2 warnings\"" },
+                ["finished"] = c.Has("finished") ? "true" : null,
+            })) { Example = "aghouse notify --title Build --body \"Done, 2 warnings\" --finished" },
 
         new("waiting", "Notifications", "waiting", "Panes that need you, then handled requests (JSON)",
             _ => CallAsync(Methods.Waiting, new(), pretty: true)),
@@ -643,7 +644,7 @@ internal static class Program
     /// </summary>
     private static async Task<int> ClaudeHookAsync(string? pane)
     {
-        string? eventName = null, message = null;
+        string? eventName = null, message = null, notificationType = null;
         if (Console.IsInputRedirected)
         {
             try
@@ -653,6 +654,7 @@ internal static class Program
                 var json = JsonNode.Parse(input);
                 eventName = json?["hook_event_name"]?.GetValue<string>();
                 message = json?["message"]?.GetValue<string>();
+                notificationType = json?["notification_type"]?.GetValue<string>();
             }
             catch (JsonException) { }
         }
@@ -696,10 +698,17 @@ internal static class Program
         };
         if (body is null) return 0;
 
+        // Done, not asking: Stop, and the reminder Claude sends after sitting idle at its prompt. A permission
+        // prompt or a question stays "asking", so it comes first in the waiting list and for Ctrl+Shift+U.
+        var finished = AgHouse.Core.ClaudeHooks.IsFinished(eventName, notificationType, message);
+
         try
         {
             await using var client = await RpcClient.ConnectAsync(timeoutMs: 1000);
-            await client.CallAsync(Methods.Notify, new() { ["title"] = "Claude Code", ["body"] = body, ["pane"] = pane });
+            await client.CallAsync(Methods.Notify, new()
+            {
+                ["title"] = "Claude Code", ["body"] = body, ["pane"] = pane, ["finished"] = finished ? "true" : null,
+            });
         }
         catch (Exception ex) when (ex is TimeoutException or IOException) { }
         return 0;
@@ -828,7 +837,7 @@ internal static class Program
 
     /// <summary>Options that never take a value, so "--enter hello" keeps "hello" as an argument.</summary>
     private static bool IsFlag(string key) =>
-        key is "enter" or "json" or "force" or "clear" or "yes" or "ignore-case" or "help";
+        key is "enter" or "json" or "force" or "clear" or "yes" or "ignore-case" or "help" or "finished";
 
     private static async Task<int> UpdateAsync(Ctx c)
     {

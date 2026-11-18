@@ -138,7 +138,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         {
             FooterKind = FooterState.Waiting;
             FooterText = $"{waiting} waiting · Ctrl+Shift+U";
-            FooterDetail = "Show what's waiting (Ctrl+Shift+I). Ctrl+Shift+U jumps to the pane that asked most recently.";
+            FooterDetail = "Show what's waiting (Ctrl+Shift+I). Ctrl+Shift+U jumps to the top one: a pane that's asking something comes before one that finished.";
         }
         else if (UpdateFooterText() is var (text, detail))
         {
@@ -615,11 +615,8 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
 
     public void JumpToUnread()
     {
-        var pane = Workspaces.SelectMany(w => w.Panes.Values)
-            .Where(p => p.HasUnread)
-            .OrderByDescending(p => p.UnreadAt)
-            .FirstOrDefault();
-        if (pane is not null) FocusPane(pane.Id);
+        // The top of the waiting list: an agent that's asking before one that finished, newest first.
+        if (WaitingPanes() is [var (_, pane), ..]) FocusPane(pane.Id);
     }
 
     private void SetActive(Workspace ws, string paneId)
@@ -740,7 +737,8 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         }
     }
 
-    public void Notify(string? paneId, string? title, string? body)
+    /// <param name="finished">The agent is done rather than asking something: it waits behind asking panes.</param>
+    public void Notify(string? paneId, string? title, string? body, bool finished = false)
     {
         PaneSession? pane = null;
         Workspace? ws;
@@ -761,7 +759,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         var text = string.IsNullOrWhiteSpace(body) ? title : body;
         // An agent that asks for you has stopped working until you answer.
         if (pane is not null) ws.ClearStatus(Workspace.AgentKey, pane.Id);
-        if (pane is not null && !IsFocused(pane)) MarkUnread(pane, text);
+        if (pane is not null && !IsFocused(pane)) MarkUnread(pane, text, finished);
         var looking = UserIsLooking();
         Log.Write($"notify pane={pane?.Id} looking={looking}");
 
@@ -879,10 +877,10 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     private bool IsFocused(PaneSession pane) =>
         UserIsLooking() && _selected is { } ws && ws.ActivePaneId == pane.Id && ws.Panes.ContainsKey(pane.Id);
 
-    private void MarkUnread(PaneSession pane, string? message)
+    private void MarkUnread(PaneSession pane, string? message, bool finished = false)
     {
         var before = (pane.HasUnread, pane.AttentionMessage);
-        pane.RaiseAttention(message);
+        pane.RaiseAttention(message, finished);
         var (ws, _) = FindPane(pane.Id);
         ws?.RefreshSummary();
         // Say it to screen readers too, but only when something changed: a pane that keeps
@@ -912,11 +910,12 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         while (Earlier.Count > 20) Earlier.RemoveAt(Earlier.Count - 1);
     }
 
-    /// <summary>Every pane that needs you now, newest first.</summary>
-    public IReadOnlyList<(Workspace Workspace, PaneSession Pane)> WaitingPanes() =>
-        Workspaces.SelectMany(w => w.Panes.Values.Where(p => p.HasUnread).Select(p => (w, p)))
-            .OrderByDescending(x => x.p.UnreadAt)
-            .ToList();
+    /// <summary>Every pane that needs you now: asking first, then finished, each newest first (<see cref="PaneSession.ByUrgency"/>).</summary>
+    public IReadOnlyList<(Workspace Workspace, PaneSession Pane)> WaitingPanes()
+    {
+        var owner = Workspaces.SelectMany(w => w.Panes.Values.Where(p => p.HasUnread).Select(p => (p, w))).ToDictionary(x => x.p, x => x.w);
+        return PaneSession.ByUrgency(owner.Keys).Select(p => (owner[p], p)).ToList();
+    }
 
     private void ClearFocusedUnread()
     {

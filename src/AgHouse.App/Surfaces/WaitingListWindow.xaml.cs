@@ -38,7 +38,7 @@ public sealed class WaitingRow
 }
 
 /// <summary>
-/// The footer's "N waiting" opens this (also Ctrl+Shift+I): every pane that needs you, newest first,
+/// The footer's "N waiting" opens this (also Ctrl+Shift+I): every pane that needs you (asking, then finished; newest first),
 /// then the last requests that were handled. Click or Enter goes to the pane.
 /// </summary>
 public partial class WaitingListWindow : FlyoutWindow

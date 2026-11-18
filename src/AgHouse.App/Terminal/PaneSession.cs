@@ -256,15 +256,37 @@ public sealed class PaneSession : ObservableObject, IDisposable
         private set => Set(ref _attention, value);
     }
 
+    /// <summary>
+    /// The agent finished (Claude Code's Stop, or its idle reminder, or <c>aghouse notify --finished</c>)
+    /// rather than stopped mid-task to ask something. Both look the same ("Needs you"); a finished pane only
+    /// waits behind the asking ones in the waiting list, the palette and Ctrl+Shift+U.
+    /// </summary>
+    public bool AttentionFinished { get; private set; }
+
     /// <summary>Mark this pane as needing the user, optionally with the agent's message.</summary>
-    public void RaiseAttention(string? message)
+    public void RaiseAttention(string? message, bool finished = false)
     {
-        // A bare bell keeps a message the agent is still waiting on; a new message replaces it.
-        if (!string.IsNullOrWhiteSpace(message)) AttentionMessage = message.Trim();
-        else if (!HasUnread) AttentionMessage = null;
+        // A bare bell keeps a message (and its kind) the agent is still waiting on; a new message replaces both.
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            AttentionMessage = message.Trim();
+            AttentionFinished = finished;
+        }
+        else if (!HasUnread)
+        {
+            AttentionMessage = null;
+            AttentionFinished = finished;
+        }
         HasUnread = true;
         UnreadAt = DateTime.UtcNow; // a repeat request on a waiting pane counts as the newest
     }
+
+    /// <summary>
+    /// The order every list of waiting panes uses: panes that are asking, then the finished ones,
+    /// each newest first. Ctrl+Shift+U goes to the first.
+    /// </summary>
+    public static IOrderedEnumerable<PaneSession> ByUrgency(IEnumerable<PaneSession> waiting) =>
+        waiting.OrderBy(p => p.AttentionFinished).ThenByDescending(p => p.UnreadAt);
 
     public bool HasUnread
     {
@@ -273,7 +295,11 @@ public sealed class PaneSession : ObservableObject, IDisposable
         {
             var (was, message, at) = (_hasUnread, _attention, UnreadAt);
             if (value) UnreadAt = DateTime.UtcNow;
-            else AttentionMessage = null;
+            else
+            {
+                AttentionMessage = null;
+                AttentionFinished = false;
+            }
             Set(ref _hasUnread, value);
             if (was && !value) AttentionHandled?.Invoke(this, message, at);
         }

@@ -206,7 +206,7 @@ public partial class MainWindow
         Shortcut("Split down", "Ctrl+Shift+D", AppAction.SplitDown, "pane");
         Shortcut(zoomed ? "Show all panes" : "Zoom pane", "Ctrl+Shift+Enter", AppAction.ZoomPane, "maximize fill unzoom");
         Shortcut("Find in pane output", "Ctrl+Shift+F", AppAction.Find, "search");
-        Shortcut("Jump to the newest waiting pane", "Ctrl+Shift+U", AppAction.JumpToUnread, "needs you attention");
+        Shortcut("Jump to the top waiting pane", "Ctrl+Shift+U", AppAction.JumpToUnread, "needs you attention");
         Action("Show waiting list", "Ctrl+Shift+I", ShowWaitingList, "needs you earlier history");
         Shortcut("Next tab", "Ctrl+PageDown", AppAction.NextTab);
         Shortcut("Previous tab", "Ctrl+PageUp", AppAction.PreviousTab);

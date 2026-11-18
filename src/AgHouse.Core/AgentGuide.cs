@@ -25,7 +25,7 @@ public static class AgentGuide
         new("aghouse read-pane --pane ID [--lines N]", "what a pane printed, as plain text"),
         new("aghouse send-keys ctrl+c --pane ID", "press keys: ctrl+c, enter, esc, up, tab, y ..."),
         new("aghouse close-pane ID", "close a pane you opened"),
-        new("aghouse notify --body \"<message>\"", "tell the user you need them (marks your pane; a toast if they're away)"),
+        new("aghouse notify --body \"<message>\" [--finished]", "tell the user you need them (marks your pane; a toast if they're away). Add --finished when the work is done rather than blocked on a question, so it waits behind panes that are asking"),
         new("aghouse set-status <key> <text>", "a short status chip on your workspace's sidebar row"),
         new("aghouse list", "every workspace and pane (JSON)"),
     ];

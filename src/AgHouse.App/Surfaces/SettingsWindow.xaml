@@ -254,7 +254,7 @@
                                 <TextBlock Text="Other agents and scripts" Style="{StaticResource Label}" />
                                 <TextBlock Style="{StaticResource Help}">
                                     <Run Text="From any pane, run " /><Run Text="aghouse notify --body &quot;Waiting for approval&quot;" FontFamily="Cascadia Mono, Consolas" /><Run
-                                         Text=", or print an OSC 9 or OSC 777 notification. A bell marks the pane too. Scripts can also fill the sidebar with " /><Run
+                                         Text=", or print an OSC 9 or OSC 777 notification. A bell marks the pane too. Add " /><Run Text="--finished" FontFamily="Cascadia Mono, Consolas" /><Run Text=" when the work is done rather than waiting on an answer: it then waits behind panes that are asking. Scripts can also fill the sidebar with " /><Run
                                          Text="aghouse set-status" FontFamily="Cascadia Mono, Consolas" /><Run Text=", " /><Run
                                          Text="set-progress" FontFamily="Cascadia Mono, Consolas" /><Run Text=" and " /><Run
                                          Text="log" FontFamily="Cascadia Mono, Consolas" /><Run Text="." />

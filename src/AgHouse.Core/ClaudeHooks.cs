@@ -48,6 +48,17 @@ public static partial class ClaudeHooks
     /// </summary>
     public static readonly IReadOnlyList<string> Events = ["Notification", "Stop", "UserPromptSubmit", "PostToolUse", "SessionStart"];
 
+    /// <summary>
+    /// A hook event that says Claude is done rather than asking something: Stop, or the Notification Claude
+    /// sends after sitting idle at its prompt (notification_type "idle_prompt"; older versions only say
+    /// "Claude is waiting for your input"). A permission prompt or a question is asking.
+    /// </summary>
+    public static bool IsFinished(string? eventName, string? notificationType, string? message) =>
+        eventName == "Stop"
+        || (eventName == "Notification"
+            && (notificationType == "idle_prompt"
+                || (notificationType is null && message?.Trim() == "Claude is waiting for your input")));
+
     public static string DefaultPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "settings.json");
 
