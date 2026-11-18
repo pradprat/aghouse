@@ -2,6 +2,7 @@ using System.IO;
 using AgHouse.App.Terminal;
 using AgHouse.Core;
 using AgHouse.Core.Layout;
+using AgHouse.Core.Themes;
 
 namespace AgHouse.App.Workspaces;
 
@@ -49,7 +50,23 @@ public sealed class Workspace : ObservableObject
         Tree?.Root is null ? [] : Tree.Leaves().SelectMany(l => Slots.TryGetValue(l.PaneId, out var s) ? s.Tabs : []);
     public WorkspaceView View { get; }
 
-    public string Name { get => _name; set => Set(ref _name, value); }
+    public string Name
+    {
+        get => _name;
+        set
+        {
+            if (!Set(ref _name, value)) return;
+            OnPropertyChanged(nameof(TileLetter));
+            OnPropertyChanged(nameof(TileIndex));
+            RefreshDetails();
+        }
+    }
+
+    /// <summary>The sidebar tile's letter: the name's first letter or digit.</summary>
+    public string TileLetter => SpaceTiles.LetterFor(_name);
+
+    /// <summary>Which of the theme's tile colours (SpaceTile0Brush..) this workspace wears: stable for its name.</summary>
+    public int TileIndex => SpaceTiles.IndexFor(_name);
 
     public string? ActivePaneId { get => _activePaneId; set => Set(ref _activePaneId, value); }
 
@@ -131,7 +148,7 @@ public sealed class Workspace : ObservableObject
     private sealed record StatusEntry(string Key, string Text, string? PaneId);
     private sealed record LogEntry(string Text, bool IsProblem);
 
-    /// <summary>Neutral chips under the location: agent state, `aghouse set-status` entries, listening ports.</summary>
+    /// <summary>Agent state ("2 working"), `aghouse set-status` entries and ports, in that order: what `aghouse list` reports as status.</summary>
     public IReadOnlyList<SidebarChip> Chips
     {
         get => _chips;
@@ -185,6 +202,14 @@ public sealed class Workspace : ObservableObject
     /// <summary>The row's help text for screen readers: where it is, then everything the chips, bar and log say.</summary>
     public string Details { get => _details; private set => Set(ref _details, value); }
 
+    private string _rowToolTip = "";
+
+    /// <summary>
+    /// The one-line row's tooltip, one fact per line: the name, location, branch and PR, then what scripts
+    /// report (set-status entries, ports, progress, the newest log line). Agent state lives in the Agents list.
+    /// </summary>
+    public string RowToolTip { get => _rowToolTip; private set => Set(ref _rowToolTip, value); }
+
     public void SetStatus(string key, string text, string? paneId)
     {
         var agent = key == AgentKey;
@@ -234,6 +259,9 @@ public sealed class Workspace : ObservableObject
         RefreshDetails();
     }
 
+    /// <summary>TCP ports programs in this workspace listen on (the row's context menu opens them).</summary>
+    public IReadOnlyList<int> Ports => _ports;
+
     public void SetPorts(IReadOnlyList<int> ports)
     {
         if (ports.SequenceEqual(_ports)) return;
@@ -264,6 +292,7 @@ public sealed class Workspace : ObservableObject
         Chips = all;
         WorkingCount = _status.Count(s => s.Key == AgentKey);
         RefreshDetails();
+        AgentsChanged?.Invoke();
     }
 
     private void RefreshDetails()
@@ -277,6 +306,15 @@ public sealed class Workspace : ObservableObject
         if (HasProgress) parts.Add(ProgressText);
         if (LastLog is { } log) parts.Add(log);
         Details = string.Join("; ", parts);
+
+        var lines = new List<string> { _name };
+        if (Location is { } where) lines.Add(where);
+        if (Branch is { } branch) lines.Add(PullRequest is { } pr2 ? $"{branch} · PR {pr2}" : branch);
+        lines.AddRange(_status.Where(s => s.Key != AgentKey).Select(s => s.Text));
+        if (_ports.Count > 0) lines.Add(string.Join("   ", _ports.Select(p => $"localhost:{p}")));
+        if (HasProgress) lines.Add(ProgressText);
+        if (LastLog is { } last) lines.Add(last);
+        RowToolTip = string.Join("\n", lines);
     }
 
     /// <summary>Recompute everything the sidebar shows from the panes.</summary>
@@ -302,7 +340,11 @@ public sealed class Workspace : ObservableObject
         OnPropertyChanged(nameof(PaneCount));
         RefreshDetails();
         RefreshZoomNote(waiting);
+        AgentsChanged?.Invoke();
     }
+
+    /// <summary>An agent here may have changed state (working, waiting, done): the sidebar's Agents list looks again.</summary>
+    public event Action? AgentsChanged;
 
     /// <summary>
     /// While a pane is zoomed, its header says how many panes are hidden, or names the hidden pane

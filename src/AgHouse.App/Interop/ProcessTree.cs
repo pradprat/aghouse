@@ -70,9 +70,27 @@ internal static partial class ProcessTree
     /// For each root pid, that pid plus every process below it, from one snapshot of the process table.
     /// Used to tell which pane owns a listening port.
     /// </summary>
-    public static Dictionary<int, HashSet<int>> Descendants(IEnumerable<int> roots)
+    public static Dictionary<int, HashSet<int>> Descendants(IEnumerable<int> roots) => Descendants(roots, Snapshot());
+
+    /// <summary>
+    /// <see cref="Descendants(IEnumerable{int})"/>, plus what runs under each root (as <see cref="RunningUnder(int)"/>
+    /// means it), from one snapshot: the port scan asks both every 3 s. Running is null when the snapshot
+    /// failed, so nothing is known to have exited.
+    /// </summary>
+    public static (Dictionary<int, HashSet<int>> Trees, Dictionary<int, IReadOnlyList<string>>? Running) DescendantsAndRunning(IReadOnlyCollection<int> roots)
     {
         var all = Snapshot();
+        if (all.Count == 0) return (Descendants(roots, all), null);
+        var byPid = new Dictionary<int, Entry>(all.Count);
+        foreach (var p in all) byPid.TryAdd(p.Pid, p);
+        var children = all.ToLookup(p => p.ParentPid);
+        var running = new Dictionary<int, IReadOnlyList<string>>();
+        foreach (var pid in roots.Distinct()) running[pid] = Under(pid, byPid, children);
+        return (Descendants(roots, all), running);
+    }
+
+    private static Dictionary<int, HashSet<int>> Descendants(IEnumerable<int> roots, List<Entry> all)
+    {
         var children = all.ToLookup(p => p.ParentPid, p => p.Pid);
         var result = new Dictionary<int, HashSet<int>>();
         foreach (var root in roots.Distinct())

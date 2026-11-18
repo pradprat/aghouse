@@ -161,8 +161,10 @@ aghouse never looks like a web app in a frame, never like a neon "hacker" termin
 **Key Characteristics:**
 - Fluent theme resources everywhere (`DynamicResource` brushes), so light, dark and accent changes follow Windows.
 - Flat: Mica, subtle fills and 1–2px strokes. No shadows.
-- One accent colour (the user's Windows accent) for both "selected" and "needs you", told apart by shape and words. Focus is always neutral.
-- Terminals fill the window. Chrome is a resizable sidebar plus pane frames.
+- One accent colour (the user's Windows accent, or the scheme's under a scheme theme) for both "selected" and "needs you", told apart by shape and words. Focus is always neutral.
+- Paired themes: a dark theme and a light theme, with Mode (follow Windows, Dark or Light) choosing which shows. "Windows" is the default for both.
+- Terminals fill the window. Chrome is a resizable sidebar (Spaces above, Agents below, foldable to a 48px rail) plus pane frames.
+- Workspaces wear a letter tile coloured from the theme's own ANSI table: the one place hue appears in the chrome besides the accent, and never with meaning.
 - Small Segoe Fluent Icons glyphs for every control. No text buttons in the chrome.
 
 ## Colors
@@ -173,13 +175,12 @@ Under the default "Windows" theme, the palette is the Windows theme itself plus 
 - **System Accent** (`AccentFillColorDefaultBrush`; reference value `system-accent`, the dark-theme fill for Windows' default blue): the user's own Windows accent. It is the only chromatic colour in the chrome. It marks the selected workspace (a 3×16 pill), workspaces with a pane that needs you (a filled dot with a faint halo), and panes that need you (a 2px frame). Never hard-code it. Always bind the brush so the user's accent wins.
 
 ### Neutral
-- **Mica Backdrop** (`mica-dark` / `mica-light`): the window background, provided by Windows 11's Mica material. The app never paints its own window background.
+- **Mica Backdrop** (`mica-dark` / `mica-light`): the window background under the Windows theme, provided by Windows 11's Mica material. Under that theme the app never paints its own window background; scheme themes paint it solid.
 - **Primary Text** (`TextFillColorPrimaryBrush`; `text-primary-dark`): workspace names (inherited by default), the focused pane's 1px border and header title, and "Needs you".
-- **Secondary Text** (`TextFillColorSecondaryBrush`; `text-secondary-dark`): the "Workspaces" label, git branch, cwd, the agent's waiting message (in a Needs-you pane header and under the workspace name), header names of panes at rest, and the footer's setup and idle hints.
+- **Secondary Text** (`TextFillColorSecondaryBrush`; `text-secondary-dark`): the "Spaces" and "Agents" labels, sidebar icons at rest, the git branch, agent tasks and ages, the agent's waiting message (in a Needs-you pane header and under the workspace name), header names of panes at rest, and the footer's setup and idle hints.
 - **Tertiary Text** (`TextFillColorTertiaryBrush`; `text-tertiary-dark`): not used for text anyone has to read. It is about 3.4:1 on the light terminal background and on light Mica, under the 4.5:1 floor, so pane headers at rest and the footer hint moved to Secondary.
 - **Subtle Fill** (`SubtleFillColorSecondaryBrush`; `subtle-fill-dark`): background for hovered and selected sidebar items.
-- **Control Stroke** (`ControlStrokeColorDefaultBrush`; `control-stroke-dark`): the 1px frame around inactive panes, the 1px edge of a status chip, and the track of the progress line.
-- **Control Fill** (`ControlFillColorDefaultBrush`; `control-fill-dark`): the status chip's fill, so a chip reads as a resting Fluent control on any row background (hover, selected or none). A port chip steps to `ControlFillColorSecondaryBrush` on hover.
+- **Control Stroke** (`ControlStrokeColorDefaultBrush`; `control-stroke-dark`): the 1px frame around inactive panes and the track of the progress line.
 - **Flyout surface** (`FlyoutBackground`, edge `SurfaceStrokeColorFlyoutBrush`): the command palette, the waiting list and the find results, Fluent's own menu surface.
 - **Divider** (`DividerStrokeColorDefaultBrush`): the hairline under each setting and between the welcome screen's sections.
 - **Caution background** (`SystemFillColorCautionBackgroundBrush`): only the Settings InfoBar for a broken settings.json, with the caution glyph. It is the same semantic exception as the footer's.
@@ -188,17 +189,30 @@ The `-dark` values above are reference values for the dark theme. The brushes ar
 
 ### Terminal palettes
 These are fixed because the terminal is a native child window with its own renderer.
-- **Terminal Night** (`terminal-night` on `terminal-night-ink`, selection `terminal-night-selection`): the dark terminal, using Windows Terminal's Campbell 16-colour table. The pane frame's background matches it so the frame and terminal read as one surface.
-- **Terminal Paper** (`terminal-paper` on `terminal-paper-ink`, selection `terminal-paper-selection`): the light terminal, using the One Half Light 16-colour table.
-- The terminal palette follows the `theme` setting (`system` / `dark` / `light`) live. Changing it in Settings, or switching Windows between light and dark while it's `system`, recolours every pane and its frame without a restart.
+- **Terminal Night** (`terminal-night` on `terminal-night-ink`, selection `terminal-night-selection`): the dark terminal of the "Windows" theme, using Windows Terminal's Campbell 16-colour table. The pane frame's background matches it so the frame and terminal read as one surface.
+- **Terminal Paper** (`terminal-paper` on `terminal-paper-ink`, selection `terminal-paper-selection`): the light terminal of the "Windows" theme, using the One Half Light 16-colour table.
+- Under a scheme theme, the terminal takes the scheme's own background, foreground, selection and 16 colours, and the pane frame still matches its background.
+
+### Themes
+Settings › Appearance has **Mode** (`theme`: `system` / `dark` / `light`), **Dark theme** (`darkTheme`) and **Light theme** (`lightTheme`). Mode decides which of the pair shows. Changing any of them, or switching Windows between light and dark while Mode follows Windows, recolours the window, every pane and its frame without a restart.
+- **Windows** (default for both): the native look described above. Mica, Fluent's brushes, the user's accent, and Terminal Night / Terminal Paper.
+- **Built-in schemes** (`AgHouse.Core/Themes/BuiltInSchemes.cs`). Dark: Campbell, One Half Dark, Solarized Dark, Tango Dark, Gruvbox Dark, Tokyo Night, Catppuccin Mocha, Dracula, Nord. Light: One Half Light, Solarized Light, Tango Light, Gruvbox Light, Catppuccin Latte, Tokyo Night Day. The tables are the published ones. Each declares an accent from its own palette, and tests hold it to 3:1 on the window and the terminal.
+- **Custom schemes:** the `schemes` array in settings.json, in Windows Terminal's format plus an optional `accent`. **Import from Windows Terminal** (or `aghouse themes import`) copies Windows Terminal's own schemes in once; later changes there don't follow. A scheme that can't be used is skipped, and Appearance names it with the caution glyph. A picked name that no longer exists shows as Windows.
+- **Derivation** (`ChromePalette`): Mica is turned off and windows are painted solid. The **window surface** is the terminal background moved 4% toward the foreground. **Flyouts** are dark schemes' background at 9%, or light schemes' terminal background. **Primary text** is the foreground, pushed to 4.5:1 on the surface if it falls short. **Secondary text** is the foreground at the lowest opacity that still reaches 4.5:1. Every other Fluent grey (fills, strokes, dividers, control states) is re-expressed at the same position on the surface-to-text line, alpha kept. The **accent** is the scheme's, else its cursor, bright blue or blue: the first that isn't grey and reaches 3:1 on both window and terminal. The system **title bar** takes the surface and text colours (Windows 11).
+- **Contrast themes** (Windows high contrast) always win: schemes are ignored and the Windows theme shows.
+- **Low contrast:** a scheme whose own terminal text is under 4.5:1 (Solarized Light is one) is still offered, marked "low contrast" in the picker and in `aghouse themes`.
+- **Preview:** under the pickers, two small WPF drawings of aghouse, one per theme, side by side. Each shows the sidebar with the selected workspace's pill and a waiting workspace's dot, and a Needs-you pane running a few lines in the scheme's colours. The one on screen says "showing now". The picker rows show the scheme's background with six ANSI swatches and an accent dot.
+
+### Tile colours
+Each workspace's letter tile (and the generic glyph of an agent the Agents list can't name) takes one of six hues from the theme on screen's ANSI table: blue, green, red, purple, cyan, yellow (`SpaceTiles`, published by `AppTheme` as `SpaceTile0Brush`..`SpaceTile5Brush` and `SpaceTileInk0Brush`..). Under the Windows theme that is Campbell's or One Half Light's table. Dark themes prefer the bright half, light themes the normal half; the other half stands in for a grey (Solarized's brights) or a colour that can't carry a letter. The letter is the scheme's foreground or background, whichever reads better, pushed to 3:1. The hue comes from the workspace's name (FNV-1a), so it is the same on every launch. Tiles carry identity only: never state, never attention. A Windows contrast theme draws tiles in Window Text.
 
 ### Logo colours
-- **Sky** (`logo-sky`), **Deep Blue** (`logo-deep-blue`), **Amber** (`logo-amber`): used only in the logo and icon assets (`assets/`). The logo is a prompt, `>_`, on a sky-to-deep-blue tile; its amber cursor is the logo's picture of attention, the agent waiting for you. Inside the app, attention uses the system accent.
+- **Sky** (`logo-sky`), **Deep Blue** (`logo-deep-blue`), **Amber** (`logo-amber`): used only in the logo and icon assets (`assets/`). The logo is a prompt, `>_`, on a sky-to-deep-blue tile; its amber cursor is the logo's picture of attention, the agent waiting for you. Inside the app, attention uses the accent of the theme on screen.
 
 ### Named Rules
-**The Borrowed Colour Rule.** The chrome has no colours of its own. Every surface, text and stroke colour in the UI is a Fluent theme brush, and the only chromatic colour is the user's accent. A hex value in UI code is a defect, except in the terminal palettes. The single exception is semantic: the warning glyph for a broken settings.json uses Fluent's `SystemFillColorCautionBrush`, exactly as a Windows InfoBar would.
+**The Borrowed Colour Rule.** The chrome has no colours of its own. Every surface, text and stroke colour in the UI is a Fluent theme brush, and the only chromatic colour is the accent. The Windows theme borrows those brushes from Windows. A scheme theme overrides the same brushes app-wide with values derived from the scheme's table, so UI code still binds only to Fluent brush keys and never knows which theme is on. A hex value in UI code is a defect. Hex appears only in scheme tables, and in the Settings preview and picker swatches, which draw scheme data. There are three exceptions. One is semantic: the warning glyph uses Fluent's `SystemFillColorCautionBrush`, exactly as a Windows InfoBar would. The other is the workspace tiles (see Tile colours), the only place ANSI colours reach the chrome. Those colours still come from the scheme's table by a fixed rule, never from a hand-picked hex, and they mark which workspace a row is, never its state. The third is the agent logos in the Agents list (see Agents list): Claude Code's keeps its terracotta (`#D97757`) and Amp's its red (`#F34E3F`), because that colour is part of the logo. They are fixed hex in the mark templates only, mark which agent a row is, never its state, and read on both light and dark backgrounds.
 
-**The One Accent Rule.** The accent marks only selection and attention. Never use it for decoration, headings, icons at rest, or hover states. That includes the cmux-style metadata: status chips, the progress line, PR state and the active tab are all neutral, so the accent still means only "selected workspace" or "Needs you" at a glance. The same goes for the newer surfaces. The selected row in the palette, the waiting list and the find results takes the subtle fill, not Fluent's default accent selection. Links in About are neutral and underlined. The only accent outside the main window is the selected page's pill in Settings' nav, which is selection. Stock control states (a checked CheckBox, a focused TextBox's underline) stay as Fluent draws them.
+**The One Accent Rule.** The accent marks only selection and attention. Never use it for decoration, headings, icons at rest, or hover states. That includes the cmux-style metadata and the Agents list: the progress line, PR state, the Working and Idle marks and the active tab are all neutral, so the accent still means only "selected workspace" or "Needs you" at a glance. The same goes for the newer surfaces. The selected row in the palette, the waiting list and the find results takes the subtle fill, not Fluent's default accent selection. Links in About are neutral and underlined. The only accent outside the main window is the selected page's pill in Settings' nav, which is selection. Stock control states (a checked CheckBox, a focused TextBox's underline) stay as Fluent draws them.
 
 ## Typography
 
@@ -209,34 +223,44 @@ These are fixed because the terminal is a native child window with its own rende
 **Character:** This is the operating system's own voice. Segoe in the chrome and Cascadia in the panes are exactly what a Windows Terminal user already reads all day.
 
 ### Hierarchy
-- **Title** (600, 14px): workspace names in the sidebar, trimmed with an ellipsis.
-- **Section Label** (600, 13px, secondary text): the "Workspaces" heading. It is the only heading in the chrome.
+- **Row** (400, 13px, primary text): workspace names in the sidebar, trimmed with an ellipsis, and the "Settings" row.
+- **Section Label** (400, 12px, secondary text): "Spaces" and "Agents", and the Agents list's state headings ("Idle" then the count at 600).
 - **Body** (400, 14px): Fluent default for menus, tooltips and the rename text box.
 - **Meta** (400, 12px, secondary text): git branch, PR, cwd, the waiting message, pane header text and tab names.
-- **Caption** (400, 11px): the footer status line at the foot of the sidebar (secondary text for the setup and idle hints, primary for the waiting count and a settings problem), status chips, the progress label and the log line.
-- **Icon** (Segoe Fluent Icons, 10–13px): add (`E710`), chevron (`E70D`), settings (`E713`), close (`E711`). The git branch icon is a hand-drawn 11px stroke path at 1.4 thickness.
+- **Caption** (400, 11px): the footer status line at the foot of the sidebar (secondary text for the setup and idle hints, primary for the waiting count and a settings problem), agent ages.
+- **Icon** (Segoe Fluent Icons, 10–14px): add (`E710`), more (`E712`), search (`E721`), fold / open the sidebar (`E89F` / `E8A0`), history (`E81C`), agent, when it can't be named (`E99A`), chevron (`E70D`), settings (`E713`), close (`E711`).
+- **Tile letter** (600, 11px): the capital on a workspace tile.
 
 ### Named Rules
-**The System Voice Rule.** Never load a web font or a custom display face. Hierarchy comes from weight (400 vs 600) and from the three text brushes, not from size jumps. The whole UI spans 11–14px, except the confirmation dialog's 20px heading, which is WinUI's own dialog title.
+**The System Voice Rule.** Never load a web font or a custom display face. Hierarchy comes from weight (400 vs 600) and from the three text brushes, not from size jumps. The whole UI spans 11–14px, except two 20px headings from WinUI's type ramp: the confirmation dialog's title and the Settings page title, which has to outrank the 14px row labels under it.
 
 ## Layout
 
 The window has three columns: the sidebar (248px by default, resizable from 170 to 480px), a 4px invisible splitter, and the terminal host, which fills the rest. The window defaults to 1280×800, with a minimum of 640×400. Outer margins are 8px on the window edges and 4px where the two regions meet (sidebar `8,4,4,8`, host `2,4,8,8`).
 
-The sidebar docks three bands: a header row (the "Workspaces" label plus add and profile-menu buttons), a scrolling list of workspaces, and a footer (a one-line status plus settings gear). Each workspace row is a stack, top to bottom, and every line after the name appears only when it has something to say:
+The sidebar stacks four bands, after Herdr. It has no mark or name of its own: the system title bar right above it already shows both, and a second copy only repeated it.
 
-1. The name, with the attention dot in a right-hand column.
-2. **Needs you** · the newest waiting message, only while a pane needs you. It sits straight under the name so status lines can never push attention down.
-3. One meta line: the git branch (trimmed at 96px), the PR ("#123 open") and the cwd.
-4. Status chips, wrapping onto a second line at most: agent state ("Working"), `aghouse set-status` entries, then listening ports. Past five chips the rest fold into "+N".
-5. Progress: a Caption label ("Tests 40%") over a 2px line the width of the row.
-6. The newest `aghouse log` line.
+1. **Header:** "Spaces" (Section Label), then four ghost icons on the right: search (opens the command palette), **⋯** (New workspace with › a shell; Group by project; Collapse / Expand all groups), **+** (new workspace) and fold.
+2. **Spaces list:** it takes the rest of the height and scrolls.
+3. **Agents:** a hairline Divider, "Agents" with a ghost history icon (the waiting list), then the agents under their state headings. It is as tall as its rows, up to 45% of the sidebar, and scrolls past that. With no agent running it says "No agents running. Start Claude Code, Codex or OpenCode in a pane and it shows up here."
+4. **Footer:** a hairline Divider, the one-line status, then the **Settings** row (gear and word).
 
-An idle row with none of that is still two lines high, git or not, exactly as before. A busy row reaches about six lines.
+A workspace row is one line: the 20px tile, the name (Row type), and on the right the git branch (Meta, Secondary Text, trimmed at 110px) and the attention dot. Two more lines appear only when they have something to say:
 
-Each workspace is a tree of split panes built from nested Grids. There is a 6px invisible splitter between panes, and each pane has a minimum size of 60px wide or 40px tall. A pane can hold several terminals as tabs; only the active one is visible, the rest keep running behind it. A pane header strip (26px high) appears when the workspace is split, on any pane with two or more tabs (where it is the tab strip), and on a lone single-tab pane only while it needs you; that pane's terminal gives up the row until the user reaches it.
+1. **Needs you** · the first waiting message (asking before finished, then newest), under the name, only while a pane needs you. It may wrap onto a second line and trims after that, because the request is what the user came to read.
+2. Progress: a 2px line under the name, the width of the row.
 
-The spacing rhythm is small steps of 1, 2, 4, 6, 8 and 10px. Row padding is `10,7,8,7`, and there is 1px between rows.
+Everything else a row used to show sits in its tooltip, one fact per line: the name, the cwd, the branch with its PR ("main · PR #123 open"), `aghouse set-status` entries, listening ports, the progress label and the newest `aghouse log` line. Agent state ("Working") moved to the Agents list. Ports also open from the row's right-click menu ("Open localhost:5173").
+
+**Rail** (Ctrl+Shift+B, the fold button, `aghouse run toggle-sidebar`): the sidebar folds to 48px. The rail holds the open button, **+**, a column of tiles (the selected one keeps its fill and pill, and a waiting one wears a 10px accent dot ringed in the window colour on its top-right corner), and the gear. Group headers, the Agents list and the footer status hide; every tile shows, even from a collapsed group. The waiting list then opens from the gear. The rail and the open width are saved in session.json.
+
+**Grouped sidebar** (`groupWorkspaces`, **Group by project** in the Spaces **⋯** menu, `aghouse run toggle-groups`): a header per project above its rows, and 4px above and below each project that has a header, so it reads as one block; lone rows space like any row. The group body is an Expander re-templated to this quiet header, because WPF's group automation peer then offers expand and collapse to screen readers. A project with one workspace has no header, because it would only repeat the row's name: the row stands alone, can't be collapsed, and drags as its whole group. The header appears once a second workspace joins. The header has a 9px chevron, the project name in Meta at 600 in Secondary Text, and the count in Secondary Text. It gets the subtle fill on hover. Collapsed, the header must still say what it hides, the same rule as the zoom note: on the right, "2 waiting" (600, Primary Text) or else "Working" (Secondary Text), then the 10px attention dot while a hidden pane needs you. While a group is collapsed and holds the selected workspace, its header carries the selection pill and the subtle fill. Expanded, the header shows only the name and the count, because the rows speak for themselves. Dragging, the 2px neutral insertion line goes between rows of the dragged row's own group, or between groups for a dragged header or lone row.
+
+**Pane drag preview:** dragging a pane's header over another pane shows the drop as a Popup above the terminals. It covers the half the pane will take, or the whole target with "Swap with <name>" for a swap. The fill is Primary Text at 12% with a 2px Primary Text outline and a 4px radius, neutral like the insertion line. The cursor is the move cursor.
+
+Each workspace is a tree of split panes built from nested Grids. There is a 6px invisible splitter between panes, and each pane has a minimum size of 60px wide or 40px tall. A pane can hold several terminals as tabs; only the active one is visible, the rest keep running behind it. Every pane has a header strip (26px high) above its terminal, split or not. On a pane with two or more tabs it is the tab strip.
+
+The spacing rhythm is small steps of 1, 2, 4, 6, 8 and 10px. Workspace rows are padded `8,6,8,6` with 10px between tile and name, agent rows `6,4`, and there is 1px between rows.
 
 ### Named Rules
 **The Airspace Rule.** The terminal is a native HWND, and WPF can never draw on top of it. Every indicator, header or overlay sits beside or around a pane, never over it. Attention is a frame around the pane, not a badge on it. Something that has to float above the terminals is its own window, the way a menu or tooltip is: the palette and the waiting list are owned flyout windows, and the find results are a popup. Such surfaces are transient, take focus while open, and hand it back to the terminal when they close. Nothing persistent ever floats over a pane.
@@ -257,34 +281,35 @@ Gently rounded corners on everything interactive: 4px on sidebar row backgrounds
 ### Buttons
 Stock Fluent and quiet.
 - **Shape:** Fluent default radius.
-- **Header buttons** (new workspace, profile menu): stock Fluent buttons holding one Segoe Fluent Icons glyph, with padding `8,4` and `6,4`.
-- **Ghost buttons** (settings gear, pane close ✕): transparent background, no border, Fluent hover fill. The pane close button can't take focus, so it never steals focus from the terminal.
+- **Ghost buttons** (every sidebar control: search, fold, ⋯, +, history, the footer status, Settings; and the pane close ✕): transparent background, no border, a 4px subtle fill on hover. Sidebar icons rest in Secondary Text at 12–14px. The pane close button can't take focus, so it never steals focus from the terminal.
 - **Every icon button has a tooltip naming the action and its shortcut** ("New workspace (Ctrl+Shift+N)").
 
-### Navigation: workspace list
-Styled like a WinUI NavigationView item.
-- **Rest:** transparent. Workspace name in Title type, metadata lines in Meta type.
-- **Hover:** subtle-fill background on a 4px-rounded rectangle.
-- **Selected:** the same subtle fill, plus a 3×16 accent pill at the left edge, level with the name line (9px from the top). A busy row is six lines tall, and the pill marks the name, not the middle of the row.
+### Navigation: Spaces (the workspace list)
+One line per workspace, after Herdr.
+- **Rest:** transparent. The tile (20px, 5px radius, Tile letter), the name in Row type, the branch on the right in Meta.
+- **Hover:** subtle-fill background on a 6px-rounded rectangle.
+- **Selected:** the same subtle fill, plus a 3×16 accent pill at the left edge, level with the tile (8px from the top), so it still marks the name when "Needs you" makes the row taller.
 - **Focus:** keyboard focus gets Fluent's two-stroke focus ring (`FocusStrokeColorOuterBrush` 2px over `FocusStrokeColorInnerBrush` 1px) on the row's 4px shape. It's neutral, never the accent, and only appears for keyboard focus (Ctrl+Arrow moves it without changing the selection).
-- **Accessibility:** each row's automation name is the workspace name, its help text is the location followed by the branch, PR, chips, progress and log line, and its item status is "Needs you: <message>" while a pane waits. Icon-only buttons carry an automation name ("New workspace", "Open settings", "Close pane"), not just a tooltip. When a pane starts needing you, the window raises a UIA notification ("aghouse, Windows PowerShell (2) needs you: Waiting for approval"; just the workspace name when it has one pane) so screen readers hear what sighted users see.
+- **Tooltip:** after 700ms, the row's facts one per line (see Layout). It replaces the meta line, chips and log line rows used to carry.
+- **Accessibility:** each row's automation name is the workspace name, its help text is the location followed by the branch, PR, status entries, ports, progress and log line, and its item status is "Needs you: <message>" while a pane waits. Icon-only buttons carry an automation name ("New workspace", "Open settings", "Close pane"), not just a tooltip. When a pane starts needing you, the window raises a UIA notification ("aghouse, Windows PowerShell (2) needs you: Waiting for approval"; just the workspace name when it has one pane) so screen readers hear what sighted users see.
 - **Name:** a new workspace is named after its folder ("aghouse"; "Home" for the user's profile folder), with "(2)" when that name is taken, so `select-workspace` by name stays unambiguous.
-- **Waiting line:** the second line, **Needs you** (600, Primary Text) then "· <newest message>" in Secondary Text, in Meta type. It is derived from the waiting panes, so it disappears as soon as nothing is waiting; the sidebar never shows a request that was already handled. A pane that rang its bell without a message shows just "Needs you". The tooltip lists every waiting message, newest first.
-- **PR:** "#123 open", "#123 draft", "#123 merged" or "#123 closed", from `gh pr view` for the active pane's branch, after the branch on the meta line. State is said in words, never in GitHub's green or purple. No `gh`, signed out, or no PR: nothing shows.
-
-### Status chips
-Neutral, small, and never the accent.
-- **Shape:** Control Fill with a 1px Control Stroke edge, 3px radius, Caption type in Secondary Text, padding `5,0,5,1`, 4px apart, trimmed at 150px.
-- **Order:** agent state first, grouped by what it says ("Working", or "2 working" for two panes, matching "2 waiting"), then `aghouse set-status` entries in the order they were set, then listening ports (":5173").
-- **Ports:** TCP ports in LISTEN state owned by any process under the workspace's shells (not the shell itself), checked every 3 seconds. A port chip opens `http://localhost:<port>` in the default browser and is the only chip that reacts to hover. WSL processes aren't visible to Windows, so their ports don't show.
-- **Overflow:** five chips, then "+N" with the rest in its tooltip.
-
-### Progress line and log line
-- **Progress:** `aghouse set-progress` draws a Caption label ("Build 65%", or just "65%") over a 2px line: Control Stroke track, Secondary Text fill. It is a stock WPF ProgressBar with a quiet template, so screen readers get the value. `clear` removes it.
-- **Log:** the newest `aghouse log` line in Caption, Secondary Text, one line. A `warn` or `error` line gets the caution glyph (`E7BA`, `SystemFillColorCautionBrush`), the same treatment as the settings problem in the footer. The tooltip holds the last 20 lines, newest first.
-- Status, progress and log are runtime state and are never saved: a restored session has no agents running yet.
+- **Waiting line:** the second line, **Needs you** (600, Primary Text) then "· <message>" in Secondary Text, in Meta type: the first waiting pane's, in the waiting order (asking before finished, then newest). It is derived from the waiting panes, so it disappears as soon as nothing is waiting; the sidebar never shows a request that was already handled. A pane that rang its bell without a message shows just "Needs you". The tooltip lists every waiting message in that order.
+- **PR:** "#123 open", "#123 draft", "#123 merged" or "#123 closed", from `gh pr view` for the active pane's branch, after the branch in the row's tooltip. State is said in words, never in GitHub's green or purple. No `gh`, signed out, or no PR: nothing shows.
+- **Ports:** TCP ports in LISTEN state owned by any process under the workspace's shells (not the shell itself), checked every 3 seconds, listed in the tooltip and opened from the row's menu ("Open localhost:5173", at the top). WSL processes aren't visible to Windows, so their ports don't show.
+- **Progress:** `aghouse set-progress` draws a 2px line under the name: Control Stroke track, Secondary Text fill. Its label ("Build 65%") is in the tooltip. It is a stock WPF ProgressBar with a quiet template, so screen readers get the value. `clear` removes it.
+- **Status and log:** `aghouse set-status` entries and the newest `aghouse log` line are tooltip lines. Status, progress and log are runtime state and are never saved: a restored session has no agents running yet.
 - **Rename:** the name swaps in place for a compact Fluent text box (padding `4,1`). Enter commits, Esc cancels.
-- **Context menu:** Rename, Split right, Split down, separator, Move up, Move down, separator, Close workspace. Each item that has a shortcut shows it as input-gesture text.
+- **Context menu:** the workspace's ports, if any, then Rename, Split right, Split down, separator, Move up, Move down, separator, Close workspace. Each item that has a shortcut shows it as input-gesture text.
+
+### Agents list
+Every pane running a coding agent, found two ways. The 3-second process scan recognises a known agent program under the pane's shell by its image name (`AgentPrograms`: Claude Code, OpenCode, Codex, Gemini CLI, Copilot CLI, Cursor Agent, Aider and a few more), so an agent without hooks, or Claude Code before its first prompt, is listed within 3 seconds of starting. And an agent that reports in (a Claude Code hook, or `aghouse notify` / `set-status agent` from the pane) is listed even when it runs as a plain node script the scan can't name. Working means the agent said so, or its terminal title starts with a braille spinner frame (Claude Code animates its title while it works); otherwise it is Idle. A row with no title of its own is named after the program ("OpenCode"). An agent drops out once the scan finds nothing left under its shell, unless it is waiting on you. Rows group under state headings in this order, each only while it has rows:
+- **Needs you:** in the waiting order (asking before finished, then newest), with the 10px accent dot and halo. The heading says it in words, so the Say-It Rule holds.
+- **Working:** newest first, with a 7px filled dot in Secondary Text.
+- **Idle:** newest first, with a 9px ring in Secondary Text at 1.2px.
+
+A row is a ghost button: the agent's mark (14px; see below), the workspace name in Primary Text then " · <task>" (the title the agent set, without its status glyphs) in Secondary, both 12px and trimmed together, then the time in its state ("now", "4 min", "2 h", the waiting list's format) in Caption. A click goes to the pane. The tooltip says "workspace › pane", then "Needs you · <request>", "Working for 4 min" or "Idle for 2 h"; screen readers hear "aghouse, Fix the build, Working, 4 min". The history icon beside "Agents" opens the waiting list. Agent state never appears on the workspace row; the row keeps only "Needs you".
+
+**Agent marks** (`AgentMark` in MainWindow.xaml, picked by the agent's program, `AgentPrograms`): each agent's own logo at 14px, as path markup (sources and licence in `assets/THIRD-PARTY-NOTICES.md`). Claude Code, OpenCode, Codex, Gemini CLI, Copilot CLI, Cursor Agent, Goose, Kiro, Qwen Code and Amp have one. A single-colour logo takes Primary Text, the way an SVG's `currentColor` follows the text, so it suits every theme; Claude Code and Amp keep their brand colour. Every other known agent (Aider, Crush, Droid, Auggie) gets a 16px rounded square outlined in Secondary Text with a two-letter monogram at 8px/600 ("Ai" Aider, "Cr" Crush), so two agents never look alike. An agent known only because it reported in (a node script the scan can't name) keeps the generic agent glyph (`E99A`) in its workspace's tile colour.
 
 ### Pane frame (signature component)
 The frame around each terminal. It's the main place attention shows up. Its three states are told apart by shape and words, not by colour alone, because an accent outline means "focus" everywhere else in Windows.
@@ -311,14 +336,14 @@ One Fluent dialog (`ConfirmDialog`) in WinUI ContentDialog's shape, shown only b
 - Other notices (Connect Claude Code, a settings.json that won't parse, a shell that failed to start) stay the stock MessageBox.
 
 ### Sidebar footer status
-One Caption line beside the settings gear. It is a ghost button (transparent, Fluent hover fill) that opens what its state is about. It shows the most important of five states:
+One Caption line above the **Settings** row (gear in Secondary Text, "Settings" in Row type). It is a ghost button (transparent, Fluent hover fill) that opens what its state is about. It shows the most important of five states:
 - **Settings problem:** settings.json couldn't be parsed. A caution glyph (`E7BA`) and "settings.json has an error on line N" in Primary Text. The tooltip has the parser's message and says the app is running on defaults until the file is fixed and aghouse restarts. The broken file is never overwritten. A click opens the file.
 - **Waiting:** "2 waiting · Ctrl+Shift+U" in Primary Text, counting panes that need you across all workspaces. A click opens the waiting list.
 - **Update:** "aghouse 0.1.3 installs when you quit" once a new version is downloaded and verified, or "aghouse 0.1.3 is available" when it needs a click (updates set to notify, or a copy that wasn't installed). Secondary Text, no accent, no glyph. A background download in progress says nothing. A click opens Settings › About.
 - **Setup** (until Claude Code is connected or the first notification arrives): "Connect Claude Code so it can say when it needs you" in Secondary Text, allowed to wrap. A click opens Settings › Integrations. The first notification of any kind retires it for good (`notifiedOnce` in session.json).
 - **Idle:** "Ctrl+Shift+U  jump to a waiting pane" in Secondary Text. A click opens the waiting list, for its Earlier section.
 
-The gear's tooltip says "Settings (Ctrl+,)".
+The Settings row's tooltip says "Settings (Ctrl+,)". On the rail the status line hides and the row keeps only its gear.
 
 ### Command palette (Ctrl+Shift+P)
 An owned flyout window, 600px wide, centred 44px below the top of the main window, like Windows Terminal's.
@@ -356,7 +381,7 @@ Shown in the terminal area when there is no session.json, before any terminal ex
 Drag a row. A 2px rounded line in Primary Text (never the accent) marks the gap where it will land. The row's context menu also has **Move up** and **Move down**, and its **Close workspace** shows Ctrl+Alt+W.
 
 ### Attention dot
-A 10px accent circle with a faint 1px halo ring. It sits at the right edge of the sidebar row, level with the workspace name, so it can't be mistaken for the left-edge selection pill. It appears only while a pane in the workspace needs you. Together with the pane's Needs-you state, it is the whole attention vocabulary inside the app. Toasts and the taskbar flash carry it outside the window.
+A 10px accent circle with a faint 1px halo ring. It sits at the right edge of the sidebar row, level with the workspace name (on the rail, on the tile's top-right corner), so it can't be mistaken for the left-edge selection pill. It appears only while a pane in the workspace needs you. Together with the pane's Needs-you state, it is the whole attention vocabulary inside the app. Toasts and the taskbar flash carry it outside the window.
 
 ### Named Rules
 **The Say-It Rule.** Attention is never shown by colour alone. Wherever the accent marks a pane that needs you, the words "Needs you" appear with it. Focus uses neutral brushes, so accent never means "where your keystrokes go".
@@ -370,10 +395,10 @@ A 10px accent circle with a faint 1px halo ring. It sits at the right edge of th
 - **Do** use stock Fluent controls as they are. Build a custom template only when WPF lacks the control, as the workspace list does with its NavigationView-style item.
 - **Do** use one Segoe Fluent Icons glyph (10–13px) for chrome actions, with a tooltip that names the shortcut.
 - **Do** put attention around panes (the 2px accent frame plus the "Needs you" header) and beside workspaces (the accent dot at the row's right edge), never over the terminal.
-- **Do** show focus with neutral brushes only (a 1px Primary Text border and bold header text).
+- **Do** show focus with neutral brushes only (a 1px strong-stroke border and bold header text), quieter than the Needs-you ring.
 - **Do** match a pane frame's background to its terminal palette so frame and terminal read as one surface.
-- **Do** keep chrome text at 11–14px and build hierarchy from weight and the three text brushes.
-- **Do** let agents and scripts fill the sidebar (chips, progress, log) through the CLI, and keep every such line absent until it has something to say.
+- **Do** keep chrome text at 11–14px (20px only for the dialog and Settings page titles) and build hierarchy from weight and the three text brushes.
+- **Do** let agents and scripts report through the CLI (agent state into the Agents list; status, progress and log into the row and its tooltip), and keep the workspace row one line until something needs you.
 
 ### Don't:
 - **Don't** make it look like a web app in a frame: no custom title bar, web fonts, CSS-style cards, or Electron-style chrome.

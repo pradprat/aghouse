@@ -53,7 +53,22 @@ public static class AppTheme
                 Overrides.Add(key);
             }
         }
+        ApplyTiles(app.Resources, scheme);
         foreach (Window w in app.Windows) ApplyTo(w);
+    }
+
+    /// <summary>
+    /// The sidebar's letter tiles (SpaceTile0Brush.., SpaceTileInk0Brush..), from the scheme on screen, which
+    /// under the Windows theme is its own terminal scheme. A contrast theme gets the system's text colours.
+    /// </summary>
+    private static void ApplyTiles(ResourceDictionary resources, ColorScheme scheme)
+    {
+        var tiles = SpaceTiles.For(scheme);
+        for (var i = 0; i < tiles.Count; i++)
+        {
+            resources[$"SpaceTile{i}Brush"] = SystemParameters.HighContrast ? SystemColors.WindowTextBrush : Brush(tiles[i].Fill);
+            resources[$"SpaceTileInk{i}Brush"] = SystemParameters.HighContrast ? SystemColors.WindowBrush : Brush(tiles[i].Ink);
+        }
     }
 
     // ───────────── Resources ─────────────

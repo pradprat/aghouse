@@ -20,6 +20,7 @@ public partial class MainWindow
             case AppAction.CommandPalette: ShowPalette(); break;
             case AppAction.WaitingList: ShowWaitingList(); break;
             case AppAction.Settings: OpenSettings(); break;
+            case AppAction.ToggleSidebar: ToggleSidebar(); break;
         }
     }
 
@@ -101,7 +102,8 @@ public partial class MainWindow
             At = h.HandledAt,
             PaneId = h.PaneId,
         }).ToList();
-        var window = new WaitingListWindow(this, FooterButton, waiting, earlier, Controller.FocusPane, BackToTerminal);
+        // It opens upward from the footer line; on the rail, which has no footer line, from the gear.
+        var window = new WaitingListWindow(this, IsSidebarCollapsed ? SettingsButton : FooterButton, waiting, earlier, Controller.FocusPane, BackToTerminal);
         if (Opening(window)) window.Show();
     }
 
@@ -220,10 +222,20 @@ public partial class MainWindow
         Shortcut("Focus pane above", "Alt+Up", AppAction.Focus, "move", Direction.Up);
         Shortcut("Focus pane below", "Alt+Down", AppAction.Focus, "move", Direction.Down);
         Shortcut("Rename workspace", "Ctrl+Shift+R", AppAction.RenameWorkspace);
+        Action(IsSidebarCollapsed ? "Open the sidebar" : "Fold the sidebar", "Ctrl+Shift+B", ToggleSidebar,
+            "sidebar collapse expand hide show rail toggle");
+        var grouped = Controller.GroupWorkspaces;
+        Action(grouped ? "Show workspaces as a list" : "Group workspaces by project", null,
+            () => Controller.SetGroupWorkspaces(!grouped), "sidebar group cluster project repo folder flat");
+        if (grouped)
+        {
+            Action("Collapse all groups", null, () => Controller.SetAllGroupsExpanded(false), "sidebar fold");
+            Action("Expand all groups", null, () => Controller.SetAllGroupsExpanded(true), "sidebar unfold");
+        }
         if (Controller.Selected is { } selected)
         {
-            Action("Move workspace up", null, () => Controller.MoveWorkspace(selected, Controller.Workspaces.IndexOf(selected) - 1), "reorder");
-            Action("Move workspace down", null, () => Controller.MoveWorkspace(selected, Controller.Workspaces.IndexOf(selected) + 1), "reorder");
+            Action("Move workspace up", null, () => Controller.MoveWorkspaceBy(selected, -1), "reorder");
+            Action("Move workspace down", null, () => Controller.MoveWorkspaceBy(selected, 1), "reorder");
         }
         Shortcut("Close tab or pane", "Ctrl+Shift+W", AppAction.ClosePane);
         Shortcut("Close workspace", "Ctrl+Alt+W", AppAction.CloseWorkspace);

@@ -105,6 +105,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         Updates = new UpdateService(() => _settings.Updates);
         Updates.Changed += UpdateFooter;
         UpdateFooter();
+        Workspaces.CollectionChanged += (_, _) => QueueAgentRefresh();
     }
 
     /// <summary>New versions from GitHub Releases (Settings › About, the footer, <c>aghouse run restart-to-update</c>).</summary>
@@ -238,12 +239,13 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         var ws = new Workspace(NewId("w"), name?.Trim() ?? "");
         ws.View.RatiosChanged += ScheduleSave;
         ws.View.Visibility = Visibility.Hidden;
+        ws.AgentsChanged += QueueAgentRefresh;
         ws.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(Workspace.WaitingCount)) { UpdateFooter(); UpdateGroups(); }
             else if (e.PropertyName == nameof(Workspace.WorkingCount)) UpdateGroups();
             else if (e.PropertyName == nameof(Workspace.Project)) AssignGroup(ws); // found, or a cd into another repo
-            else if (e.PropertyName == nameof(Workspace.Name)) UpdateLabels(ws); // a folder that matches the name stops being a useful label
+            else if (e.PropertyName == nameof(Workspace.Name)) { UpdateLabels(ws); QueueAgentRefresh(); } // a folder that matches the name stops being a useful label
         };
 
         if (layout is not null)
@@ -1037,6 +1039,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         else if (e.PropertyName == nameof(PaneSession.Title))
         {
             UpdateLabels(ws);
+            QueueAgentRefresh();
         }
     }
 
@@ -1079,7 +1082,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
             case AppAction.FontBigger: _selected?.ActivePane?.Zoom(1); return true;
             case AppAction.FontSmaller: _selected?.ActivePane?.Zoom(-1); return true;
             case AppAction.FontReset: _selected?.ActivePane?.Zoom(0); return true;
-            case AppAction.CommandPalette or AppAction.WaitingList or AppAction.Settings:
+            case AppAction.CommandPalette or AppAction.WaitingList or AppAction.Settings or AppAction.ToggleSidebar:
                 SurfaceRequested?.Invoke(s.Action);
                 return true;
         }
@@ -1224,22 +1227,26 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         try
         {
             var shells = Workspaces.Select(w => (Workspace: w, Pids: w.Panes.Values.Select(p => p.ShellPid).OfType<int>().ToList())).ToList();
-            var ports = await Task.Run(() =>
+            var (ports, running) = await Task.Run(() =>
             {
                 var listening = Interop.ListeningPorts.Snapshot();
-                var trees = Interop.ProcessTree.Descendants(shells.SelectMany(s => s.Pids));
-                return shells.Select(s =>
+                // What runs under each shell, too: the Agents list spots agents by name, and drops one whose shell has nothing left.
+                var (trees, programs) = Interop.ProcessTree.DescendantsAndRunning([.. shells.SelectMany(s => s.Pids)]);
+                var ports = shells.Select(s =>
                 {
                     var pids = s.Pids.SelectMany(pid => trees.GetValueOrDefault(pid) ?? []).ToHashSet();
                     pids.ExceptWith(s.Pids); // a shell itself listening is plumbing, not a server the user started
                     return (IReadOnlyList<int>)listening.Where(l => pids.Contains(l.Pid)).Select(l => l.Port)
                         .Distinct().Order().ToList();
                 }).ToList();
+                return (ports, programs);
             });
             for (var i = 0; i < shells.Count; i++)
             {
                 if (Workspaces.Contains(shells[i].Workspace)) shells[i].Workspace.SetPorts(ports[i]);
             }
+            _runningUnder = running;
+            RefreshAgents(); // also moves every agent's age on
         }
         catch (Exception ex)
         {

@@ -25,6 +25,203 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- The sidebar's ghost button: transparent at rest, the subtle fill on hover. Icons rest in Secondary Text. -->
+        <Style x:Key="Ghost" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Padding" Value="6" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource RowFocusVisual}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" CornerRadius="4" Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- The section labels: "Spaces", "Agents". -->
+        <Style x:Key="SectionLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <!-- A workspace's letter tile. Its colour comes from the theme's ANSI table (AppTheme.ApplyTiles), picked by name. -->
+        <Style x:Key="SpaceTile" TargetType="Border">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Background" Value="{DynamicResource SpaceTile0Brush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding TileIndex}" Value="1"><Setter Property="Background" Value="{DynamicResource SpaceTile1Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="2"><Setter Property="Background" Value="{DynamicResource SpaceTile2Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="3"><Setter Property="Background" Value="{DynamicResource SpaceTile3Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="4"><Setter Property="Background" Value="{DynamicResource SpaceTile4Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="5"><Setter Property="Background" Value="{DynamicResource SpaceTile5Brush}" /></DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="SpaceTileLetter" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource SpaceTileInk0Brush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding TileIndex}" Value="1"><Setter Property="Foreground" Value="{DynamicResource SpaceTileInk1Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="2"><Setter Property="Foreground" Value="{DynamicResource SpaceTileInk2Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="3"><Setter Property="Foreground" Value="{DynamicResource SpaceTileInk3Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="4"><Setter Property="Foreground" Value="{DynamicResource SpaceTileInk4Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="5"><Setter Property="Foreground" Value="{DynamicResource SpaceTileInk5Brush}" /></DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!-- An agent's glyph wears its workspace's tile colour, so a row in Agents points back to its space. -->
+        <Style x:Key="SpaceTileGlyph" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource SpaceTile0Brush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding TileIndex}" Value="1"><Setter Property="Foreground" Value="{DynamicResource SpaceTile1Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="2"><Setter Property="Foreground" Value="{DynamicResource SpaceTile2Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="3"><Setter Property="Foreground" Value="{DynamicResource SpaceTile3Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="4"><Setter Property="Foreground" Value="{DynamicResource SpaceTile4Brush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding TileIndex}" Value="5"><Setter Property="Foreground" Value="{DynamicResource SpaceTile5Brush}" /></DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- An agent's mark in the Agents list, picked by AgentRow.AgentKey: the agent's own logo. Claude Code and
+             OpenCode are the files the user supplied; the rest are from LobeHub's icon set (MIT,
+             github.com/lobehub/lobe-icons; see assets/THIRD-PARTY-NOTICES.md). The logos are their owners'
+             trademarks, shown only to say which agent a row is. Claude Code and Amp keep their brand colour; the
+             single-colour logos take Primary Text, as SVG currentColor would. Other known agents get a two-letter
+             monogram; one known only from reporting in keeps the generic agent glyph in its workspace's tile colour.
+             All 14px, from a 24-unit box. -->
+        <DataTemplate x:Key="AgentMarkGeneric">
+            <TextBlock Text="&#xE99A;" Style="{StaticResource SpaceTileGlyph}" />
+        </DataTemplate>
+        <DataTemplate x:Key="AgentMarkClaude">
+            <Viewbox Width="14" Height="14">
+                <Canvas Width="24" Height="24">
+                    <Path Fill="#D97757" Data="F0 M20.998 10.949 H24 v3.102 h-3 v3.028 h-1.487 V20 H18 v-2.921 h-1.487 V20 H15 v-2.921 H9 V20 H7.488 v-2.921 H6 V20 H4.487 v-2.921 H3 V14.05 H0 V10.95 h3 V5 h17.998 v5.949 z M6 10.949 h1.488 V8.102 H6 v2.847 z m10.51 0 H18 V8.102 h-1.49 v2.847 z" />
+                </Canvas>
+            </Viewbox>
+        </DataTemplate>
+        <DataTemplate x:Key="AgentMarkOpenCode">
+            <Viewbox Width="14" Height="14">
+                <Canvas Width="24" Height="24">
+                    <Path Fill="{DynamicResource TextFillColorPrimaryBrush}" Data="F0 M16 6 H8 v12 h8 V6 z m4 16 H4 V2 h16 v20 z" />
+                </Canvas>
+            </Viewbox>
+        </DataTemplate>
+        <DataTemplate x:Key="AgentMarkCodex">
+            <Viewbox Width="14" Height="14">
+                <Canvas Width="24" Height="24">
+                    <Path Fill="{DynamicResource TextFillColorPrimaryBrush}" Data="F0 M8.086 .457 a6.105 6.105 0 0 1 3.046 -.415 c1.333 .153 2.521 .72 3.564 1.7 a.117 .117 0 0 0 .107 .029 c1.408 -.346 2.762 -.224 4.061 .366 l.063 .03 .154 .076 c1.357 .703 2.33 1.77 2.918 3.198 .278 .679 .418 1.388 .421 2.126 a5.655 5.655 0 0 1 -.18 1.631 .167 .167 0 0 0 .04 .155 5.982 5.982 0 0 1 1.578 2.891 c.385 1.901 -.01 3.615 -1.183 5.14 l-.182 .22 a6.063 6.063 0 0 1 -2.934 1.851 .162 .162 0 0 0 -.108 .102 c-.255 .736 -.511 1.364 -.987 1.992 -1.199 1.582 -2.962 2.462 -4.948 2.451 -1.583 -.008 -2.986 -.587 -4.21 -1.736 a.145 .145 0 0 0 -.14 -.032 c-.518 .167 -1.04 .191 -1.604 .185 a5.924 5.924 0 0 1 -2.595 -.622 6.058 6.058 0 0 1 -2.146 -1.781 c-.203 -.269 -.404 -.522 -.551 -.821 a7.74 7.74 0 0 1 -.495 -1.283 6.11 6.11 0 0 1 -.017 -3.064 .166 .166 0 0 0 .008 -.074 .115 .115 0 0 0 -.037 -.064 5.958 5.958 0 0 1 -1.38 -2.202 5.196 5.196 0 0 1 -.333 -1.589 6.915 6.915 0 0 1 .188 -2.132 c.45 -1.484 1.309 -2.648 2.577 -3.493 .282 -.188 .55 -.334 .802 -.438 .286 -.12 .573 -.22 .861 -.304 a.129 .129 0 0 0 .087 -.087 A6.016 6.016 0 0 1 5.635 2.31 C6.315 1.464 7.132 .846 8.086 .457 z m-.804 7.85 a.848 .848 0 0 0 -1.473 .842 l1.694 2.965 -1.688 2.848 a.849 .849 0 0 0 1.46 .864 l1.94 -3.272 a.849 .849 0 0 0 .007 -.854 l-1.94 -3.393 z m5.446 6.24 a.849 .849 0 0 0 0 1.695 h4.848 a.849 .849 0 0 0 0 -1.696 h-4.848 z" />
+                </Canvas>
+            </Viewbox>
+        </DataTemplate>
+        <DataTemplate x:Key="AgentMarkGemini">
+            <Viewbox Width="14" Height="14">
+                <Canvas Width="24" Height="24">
+                    <Path Fill="{DynamicResource TextFillColorPrimaryBrush}" Data="F0 M16.793 10.358 v3.867 L7.236 18.82 v-2.8 l7.751 -3.728 -7.75 -3.728 V5.763 l9.556 4.595 z" />
+                    <Path Fill="{DynamicResource TextFillColorPrimaryBrush}" Data="F0 M19.608 0 A4.392 4.392 0 0 1 24 4.392 v15.216 A4.392 4.392 0 0 1 19.608 24 H4.392 A4.392 4.392 0 0 1 0 19.608 V4.392 A4.392 4.392 0 0 1 4.392 0 h15.216 z M4.26 1.444 A2.816 2.816 0 0 0 1.444 4.26 v15.48 a2.816 2.816 0 0 0 2.816 2.816 h15.48 a2.816 2.816 0 0 0 2.816 -2.816 V4.26 a2.816 2.816 0 0 0 -2.816 -2.816 H4.26 z" />
+                </Canvas>
+            </Viewbox>
+        </DataTemplate>
+        <DataTemplate x:Key="AgentMarkCopilot">
+            <Viewbox Width="14" Height="14">
+                <Canvas Width="24" Height="24">
+                    <Path Fill="{DynamicResource TextFillColorPrimaryBrush}" Data="F0 M19.245 5.364 c1.322 1.36 1.877 3.216 2.11 5.817 .622 0 1.2 .135 1.592 .654 l.73 .964 c.21 .278 .323 .61 .323 .955 v2.62 c0 .339 -.173 .669 -.453 .868 C20.239 19.602 16.157 21.5 12 21.5 c-4.6 0 -9.205 -2.583 -11.547 -4.258 -.28 -.2 -.452 -.53 -.453 -.868 v-2.62 c0 -.345 .113 -.679 .321 -.956 l.73 -.963 c.392 -.517 .974 -.654 1.593 -.654 l.029 -.297 c.25 -2.446 .81 -4.213 2.082 -5.52 2.461 -2.54 5.71 -2.851 7.146 -2.864 h.198 c1.436 .013 4.685 .323 7.146 2.864 z m-7.244 4.328 c-.284 0 -.613 .016 -.962 .05 -.123 .447 -.305 .85 -.57 1.108 -1.05 1.023 -2.316 1.18 -2.994 1.18 -.638 0 -1.306 -.13 -1.851 -.464 -.516 .165 -1.012 .403 -1.044 .996 a65.882 65.882 0 0 0 -.063 2.884 l-.002 .48 c-.002 .563 -.005 1.126 -.013 1.69 .002 .326 .204 .63 .51 .765 2.482 1.102 4.83 1.657 6.99 1.657 2.156 0 4.504 -.555 6.985 -1.657 a.854 .854 0 0 0 .51 -.766 c.03 -1.682 .006 -3.372 -.076 -5.053 -.031 -.596 -.528 -.83 -1.046 -.996 -.546 .333 -1.212 .464 -1.85 .464 -.677 0 -1.942 -.157 -2.993 -1.18 -.266 -.258 -.447 -.661 -.57 -1.108 -.32 -.032 -.64 -.049 -.96 -.05 z m-2.525 4.013 c.539 0 .976 .426 .976 .95 v1.753 c0 .525 -.437 .95 -.976 .95 a.964 .964 0 0 1 -.976 -.95 v-1.752 c0 -.525 .437 -.951 .976 -.951 z m5 0 c.539 0 .976 .426 .976 .95 v1.753 c0 .525 -.437 .95 -.976 .95 a.964 .964 0 0 1 -.976 -.95 v-1.752 c0 -.525 .437 -.951 .976 -.951 z M7.635 5.087 c-1.05 .102 -1.935 .438 -2.385 .906 -.975 1.037 -.765 3.668 -.21 4.224 .405 .394 1.17 .657 1.995 .657 h.09 c.649 -.013 1.785 -.176 2.73 -1.11 .435 -.41 .705 -1.433 .675 -2.47 -.03 -.834 -.27 -1.52 -.63 -1.813 -.39 -.336 -1.275 -.482 -2.265 -.394 z m6.465 .394 c-.36 .292 -.6 .98 -.63 1.813 -.03 1.037 .24 2.06 .675 2.47 .968 .957 2.136 1.104 2.776 1.11 h.044 c.825 0 1.59 -.263 1.995 -.657 .555 -.556 .765 -3.187 -.21 -4.224 -.45 -.468 -1.335 -.804 -2.385 -.906 -.99 -.088 -1.875 .058 -2.265 .394 z M12 7.615 c-.24 0 -.525 .015 -.84 .044 .03 .16 .045 .336 .06 .526 l-.001 .159 a2.94 2.94 0 0 1 -.014 .25 c.225 -.022 .425 -.027 .612 -.028 h.366 c.187 0 .387 .006 .612 .028 -.015 -.146 -.015 -.277 -.015 -.409 .015 -.19 .03 -.365 .06 -.526 a9.29 9.29 0 0 0 -.84 -.044 z" />
+                </Canvas>
+            </Viewbox>
+        </DataTemplate>
+        <DataTemplate x:Key="AgentMarkCursor">
+            <Viewbox Width="14" Height="14">
+                <Canvas Width="24" Height="24">
+                    <Path Fill="{DynamicResource TextFillColorPrimaryBrush}" Data="F0 M22.106 5.68 L12.5 .135 a.998 .998 0 0 0 -.998 0 L1.893 5.68 a.84 .84 0 0 0 -.419 .726 v11.186 c0 .3 .16 .577 .42 .727 l9.607 5.547 a.999 .999 0 0 0 .998 0 l9.608 -5.547 a.84 .84 0 0 0 .42 -.727 V6.407 a.84 .84 0 0 0 -.42 -.726 z m-.603 1.176 L12.228 22.92 c-.063 .108 -.228 .064 -.228 -.061 V12.34 a.59 .59 0 0 0 -.295 -.51 l-9.11 -5.26 c-.107 -.062 -.063 -.228 .062 -.228 h18.55 c.264 0 .428 .286 .296 .514 z" />
+                </Canvas>
+            </Viewbox>
+        </DataTemplate>
+        <DataTemplate x:Key="AgentMarkGoose">
+            <Viewbox Width="14" Height="14">
+                <Canvas Width="24" Height="24">
+                    <Path Fill="{DynamicResource TextFillColorPrimaryBrush}" Data="F0 M21.595 23.61 c1.167 -.254 2.405 -.944 2.405 -.944 l-2.167 -1.784 a12.124 12.124 0 0 1 -2.695 -3.131 12.127 12.127 0 0 0 -3.97 -4.049 l-.794 -.462 a1.115 1.115 0 0 1 -.488 -.815 .844 .844 0 0 1 .154 -.575 c.413 -.582 2.548 -3.115 2.94 -3.44 .503 -.416 1.065 -.762 1.586 -1.159 .074 -.056 .148 -.112 .221 -.17 .003 -.002 .007 -.004 .009 -.007 .167 -.131 .325 -.272 .45 -.438 .453 -.524 .563 -.988 .59 -1.193 -.061 -.197 -.244 -.639 -.753 -1.148 .319 .02 .705 .272 1.056 .569 .235 -.376 .481 -.773 .727 -1.171 .165 -.266 -.08 -.465 -.086 -.471 h-.001 V3.22 c-.007 -.007 -.206 -.25 -.471 -.086 -.567 .35 -1.134 .702 -1.639 1.021 0 0 -.597 -.012 -1.305 .599 a2.464 2.464 0 0 0 -.438 .45 l-.007 .009 c-.058 .072 -.114 .147 -.17 .221 -.397 .521 -.743 1.083 -1.16 1.587 -.323 .391 -2.857 2.526 -3.44 2.94 a.842 .842 0 0 1 -.574 .153 1.115 1.115 0 0 1 -.815 -.488 l-.462 -.794 a12.123 12.123 0 0 0 -4.049 -3.97 12.133 12.133 0 0 1 -3.13 -2.695 L1.332 0 S.643 1.238 .39 2.405 c.352 .428 1.27 1.49 2.34 2.302 C1.58 4.167 .73 3.75 .06 3.4 c-.103 .765 -.063 1.92 .043 2.816 .726 .317 1.961 .806 3.219 1.066 -1.006 .236 -2.11 .278 -2.961 .262 .15 .554 .358 1.119 .64 1.688 .119 .263 .25 .52 .39 .77 .452 .125 2.222 .383 3.164 .171 l-2.51 .897 a27.776 27.776 0 0 0 2.544 2.726 c2.031 -1.092 2.494 -1.241 4.018 -2.238 -2.467 2.008 -3.108 2.828 -3.8 3.67 l-.483 .678 c-.25 .351 -.469 .725 -.65 1.117 -.61 1.31 -1.47 4.1 -1.47 4.1 -.154 .486 .202 .842 .674 .674 0 0 2.79 -.861 4.1 -1.47 .392 -.182 .766 -.4 1.118 -.65 l.677 -.483 c.227 -.187 .453 -.37 .701 -.586 0 0 1.705 2.02 3.458 3.349 l.896 -2.511 c-.211 .942 .046 2.712 .17 3.163 .252 .142 .509 .272 .772 .392 .569 .28 1.134 .49 1.688 .64 -.016 -.853 .026 -1.956 .261 -2.962 .26 1.258 .75 2.493 1.067 3.219 .895 .106 2.051 .146 2.816 .043 a73.87 73.87 0 0 1 -1.308 -2.67 c.811 1.07 1.874 1.988 2.302 2.34 h-.001 z" />
+                </Canvas>
+            </Viewbox>
+        </DataTemplate>
+        <DataTemplate x:Key="AgentMarkKiro">
+            <Viewbox Width="14" Height="14">
+                <Canvas Width="24" Height="24">
+                    <Path Fill="{DynamicResource TextFillColorPrimaryBrush}" Data="F0 M4.594 6.677 C6.67 -2.226 18.746 -2.211 21.16 6.632 c.353 1.297 1.725 7.582 -1.673 13.747 -1.545 2.797 -5.841 5.49 -6.99 1.883 C8.6 25.477 3.315 24.1 5.789 18.609 l-.318 .143 c-3.57 1.305 -3.863 -1.208 -3.173 -2.513 .45 -.84 .727 -1.335 .937 -1.897 .353 -.975 .458 -1.568 .593 -2.498 .27 -1.837 .277 -3.607 .765 -5.167 z m8.37 .01 a.92 .92 0 0 0 -.81 .428 c-.217 .323 -.33 .825 -.33 1.462 0 .705 .15 1.89 1.14 1.89 h.008 c.757 0 1.214 -.705 1.214 -1.89 0 -.622 -.127 -1.125 -.367 -1.455 a1.014 1.014 0 0 0 -.855 -.435 z m4.08 0 a.92 .92 0 0 0 -.81 .428 c-.217 .323 -.33 .825 -.33 1.462 0 .705 .15 1.89 1.14 1.89 h.008 c.757 0 1.215 -.705 1.215 -1.89 0 -.622 -.128 -1.125 -.368 -1.455 a1.014 1.014 0 0 0 -.855 -.435 z" />
+                </Canvas>
+            </Viewbox>
+        </DataTemplate>
+        <DataTemplate x:Key="AgentMarkQwen">
+            <Viewbox Width="14" Height="14">
+                <Canvas Width="24" Height="24">
+                    <Path Fill="{DynamicResource TextFillColorPrimaryBrush}" Data="F0 M19.713 2.825 h-5.907 c0 -.251 -.066 -.503 -.196 -.728 L12.819 .728 A1.46 1.46 0 0 0 11.559 0 h-1.58 c-.52 0 -1 .275 -1.26 .728 l-2.42 4.19 a1.45 1.45 0 0 0 0 1.453 l.791 1.37 c.26 .448 .74 .727 1.26 .727 h11.36 c.52 0 1 -.275 1.26 -.728 l.79 -1.37 a1.45 1.45 0 0 0 0 -1.451 l-.79 -1.37 a1.46 1.46 0 0 0 -1.26 -.728 z M.195 9.905 l2.951 5.115 a1.46 1.46 0 0 0 -.531 .531 l-.791 1.37 a1.45 1.45 0 0 0 0 1.452 l.79 1.37 c.26 .448 .74 .727 1.26 .727 h4.84 c.52 0 1 -.275 1.26 -.728 l.79 -1.37 a1.45 1.45 0 0 0 0 -1.451 L5.086 7.083 a1.46 1.46 0 0 0 -1.26 -.728 h-1.58 c-.52 0 -1 .276 -1.26 .728 l-.79 1.37 a1.45 1.45 0 0 0 0 1.452 m15.888 13.367 2.951 -5.115 c.217 .125 .469 .196 .728 .196 h1.582 c.52 0 1 -.275 1.26 -.728 l.79 -1.37 a1.45 1.45 0 0 0 0 -1.451 l-2.42 -4.191 a1.46 1.46 0 0 0 -1.259 -.728 h-1.582 c-.52 0 -1 .276 -1.259 .728 l-5.678 9.838 a1.45 1.45 0 0 0 0 1.452 l.79 1.37 c.26 .448 .74 .727 1.26 .727 h1.582 c.52 0 1 -.275 1.26 -.728 z" />
+                </Canvas>
+            </Viewbox>
+        </DataTemplate>
+        <DataTemplate x:Key="AgentMarkAmp">
+            <Viewbox Width="14" Height="14">
+                <Canvas Width="24" Height="24">
+                    <Path Fill="#F34E3F" Data="F1 M15.087 23.18 L12.03 24 l-2.097 -7.823 -5.738 5.738 -2.251 -2.251 5.718 -5.719 -7.769 -2.082 .82 -3.057 11.294 3.08 3.08 11.295 z" />
+                    <Path Fill="#F34E3F" Data="F1 M19.505 18.762 l-3.057 .82 -2.564 -9.573 -9.572 -2.564 .819 -3.057 11.295 3.079 3.08 11.295 z" />
+                    <Path Fill="#F34E3F" Data="F1 M23.893 14.374 l-3.057 .82 -2.565 -9.572 L8.7 3.057 9.52 0 l11.295 3.08 3.079 11.294 z" />
+                </Canvas>
+            </Viewbox>
+        </DataTemplate>
+        <DataTemplate x:Key="AgentMarkMonogram">
+            <Border Width="16" Height="16" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource TextFillColorSecondaryBrush}">
+                <TextBlock Text="{Binding Monogram}" FontSize="8" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Border>
+        </DataTemplate>
+        <Style x:Key="AgentMark" TargetType="ContentControl">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Width" Value="16" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Content" Value="{Binding}" />
+            <Setter Property="ContentTemplate" Value="{StaticResource AgentMarkMonogram}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding AgentKey}" Value="{x:Null}"><Setter Property="ContentTemplate" Value="{StaticResource AgentMarkGeneric}" /></DataTrigger>
+                <DataTrigger Binding="{Binding AgentKey}" Value="claude"><Setter Property="ContentTemplate" Value="{StaticResource AgentMarkClaude}" /></DataTrigger>
+                <DataTrigger Binding="{Binding AgentKey}" Value="opencode"><Setter Property="ContentTemplate" Value="{StaticResource AgentMarkOpenCode}" /></DataTrigger>
+                <DataTrigger Binding="{Binding AgentKey}" Value="codex"><Setter Property="ContentTemplate" Value="{StaticResource AgentMarkCodex}" /></DataTrigger>
+                <DataTrigger Binding="{Binding AgentKey}" Value="gemini"><Setter Property="ContentTemplate" Value="{StaticResource AgentMarkGemini}" /></DataTrigger>
+                <DataTrigger Binding="{Binding AgentKey}" Value="copilot"><Setter Property="ContentTemplate" Value="{StaticResource AgentMarkCopilot}" /></DataTrigger>
+                <DataTrigger Binding="{Binding AgentKey}" Value="cursor-agent"><Setter Property="ContentTemplate" Value="{StaticResource AgentMarkCursor}" /></DataTrigger>
+                <DataTrigger Binding="{Binding AgentKey}" Value="goose"><Setter Property="ContentTemplate" Value="{StaticResource AgentMarkGoose}" /></DataTrigger>
+                <DataTrigger Binding="{Binding AgentKey}" Value="kiro-cli"><Setter Property="ContentTemplate" Value="{StaticResource AgentMarkKiro}" /></DataTrigger>
+                <DataTrigger Binding="{Binding AgentKey}" Value="qwen"><Setter Property="ContentTemplate" Value="{StaticResource AgentMarkQwen}" /></DataTrigger>
+                <DataTrigger Binding="{Binding AgentKey}" Value="amp"><Setter Property="ContentTemplate" Value="{StaticResource AgentMarkAmp}" /></DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Shown while the sidebar is open; collapsed on the rail (Ctrl+Shift+B). -->
+        <Style x:Key="OpenOnly" TargetType="FrameworkElement">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -34,39 +231,442 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ───────────── Sidebar ───────────── -->
-        <DockPanel Grid.Column="0" Margin="8,4,4,8">
+        <!-- ───────────── Sidebar: header, Spaces, Agents, footer ───────────── -->
+        <Grid x:Name="Sidebar" Grid.Column="0" Margin="8,4,4,8" SizeChanged="Sidebar_SizeChanged">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-            <Grid DockPanel.Dock="Top" Margin="6,2,0,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="Workspaces" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                <Button Grid.Column="1" Click="NewWorkspace_Click" ToolTip="New workspace (Ctrl+Shift+N)"
-                        AutomationProperties.Name="New workspace" Padding="8,4" Margin="0,0,2,0">
+            <!-- Header: "Spaces", then search (the command palette), its menu (shells, grouping), + and fold.
+                 No mark or name here: the system title bar already carries both. -->
+            <DockPanel x:Name="HeaderBar" Grid.Row="0" Margin="6,2,0,6">
+                <Button DockPanel.Dock="Right" x:Name="FoldButton" Style="{StaticResource Ghost}" Click="FoldSidebar_Click" ToolTip="Fold the sidebar (Ctrl+Shift+B)"
+                        AutomationProperties.Name="Fold the sidebar">
+                    <TextBlock x:Name="FoldGlyph" Text="&#xE89F;" FontFamily="{StaticResource IconFont}" FontSize="14" />
+                </Button>
+                <Button DockPanel.Dock="Right" Style="{StaticResource Ghost}" Click="NewWorkspace_Click" Padding="6,5" Margin="0,0,2,0"
+                        ToolTip="New workspace (Ctrl+Shift+N)" AutomationProperties.Name="New workspace"
+                        Visibility="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolToVis}}">
                     <TextBlock Text="&#xE710;" FontFamily="{StaticResource IconFont}" FontSize="12" />
                 </Button>
-                <Button Grid.Column="2" x:Name="ProfileButton" Click="ProfileMenu_Click" ToolTip="New workspace with…"
-                        AutomationProperties.Name="New workspace with a shell" Padding="6,4">
-                    <TextBlock Text="&#xE70D;" FontFamily="{StaticResource IconFont}" FontSize="10" />
+                <Button DockPanel.Dock="Right" x:Name="SpacesMenuButton" Style="{StaticResource Ghost}" Click="SpacesMenu_Click" Padding="6,5"
+                        Margin="0,0,2,0" ToolTip="New workspace with a shell, grouping" AutomationProperties.Name="Spaces menu"
+                        Visibility="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolToVis}}">
+                    <TextBlock Text="&#xE712;" FontFamily="{StaticResource IconFont}" FontSize="12" />
                 </Button>
-            </Grid>
+                <Button DockPanel.Dock="Right" Style="{StaticResource Ghost}" Click="Search_Click" Margin="0,0,2,0"
+                        ToolTip="Search actions, workspaces and panes (Ctrl+Shift+P)" AutomationProperties.Name="Search"
+                        Visibility="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolToVis}}">
+                    <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" FontSize="14" />
+                </Button>
+                <TextBlock Text="Spaces" Style="{StaticResource SectionLabel}" TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolToVis}}" />
+            </DockPanel>
 
-            <!-- Footer: settings problem > "N waiting" > new version > setup > shortcut hint (WorkspaceController.UpdateFooter). -->
-            <Grid DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <!-- On the rail the header has room for fold only, so + gets its own row under it. -->
+            <Button x:Name="RailNewButton" Grid.Row="1" Style="{StaticResource Ghost}" Click="NewWorkspace_Click" Padding="6,5"
+                    HorizontalAlignment="Center" Margin="0,0,0,4" Visibility="Collapsed"
+                    ToolTip="New workspace (Ctrl+Shift+N)" AutomationProperties.Name="New workspace">
+                <TextBlock Text="&#xE710;" FontFamily="{StaticResource IconFont}" FontSize="12" />
+            </Button>
+
+            <!-- Drag a row to reorder (MainWindow.WorkspaceList_*): a neutral insertion line shows where it lands. -->
+            <ListBox x:Name="WorkspaceList" Grid.Row="2"
+                     ItemsSource="{Binding Workspaces}"
+                     SelectedItem="{Binding Selected, Mode=TwoWay}"
+                     Background="Transparent" BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     AllowDrop="True"
+                     PreviewMouseLeftButtonDown="WorkspaceList_PreviewMouseLeftButtonDown"
+                     PreviewMouseMove="WorkspaceList_PreviewMouseMove"
+                     DragOver="WorkspaceList_DragOver" DragLeave="WorkspaceList_DragLeave" Drop="WorkspaceList_Drop">
+                <!-- Grouped by project (only while MainWindow.ApplyGrouping adds a group description). Each
+                     group's Name is its SidebarGroup. The header toggles; collapsed, it still says what it hides
+                     needs you (dot + "N waiting"), and carries the selection pill if the selected row is inside. -->
+                <ListBox.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.ContainerStyle>
+                            <Style TargetType="GroupItem">
+                                <!-- The group says "repoB, 2 workspaces, 1 waiting". Its body is an Expander (re-templated to
+                                     the quiet header below) because WPF's group peer finds one in the template and then
+                                     offers expand/collapse to screen readers; with a bare ToggleButton it exposed only the rows. -->
+                                <Setter Property="AutomationProperties.Name" Value="{Binding Name.Summary}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="GroupItem">
+                                            <!-- No gap around a lone row (a project with one workspace): it spaces like any row.
+                                                 A project with a header gets 4px above and below, so it reads as one block. -->
+                                            <Expander x:Name="Block" Margin="0" Padding="0" BorderThickness="0" Background="Transparent"
+                                                      IsExpanded="{Binding Name.ShowsRows, Mode=TwoWay, FallbackValue=True}">
+                                            <Expander.Template>
+                                            <ControlTemplate TargetType="Expander">
+                                            <StackPanel>
+                                                <ToggleButton x:Name="Header"
+                                                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                                              Padding="0" Margin="0,1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                              FocusVisualStyle="{StaticResource RowFocusVisual}"
+                                                              ToolTip="{Binding Name.Label}"
+                                                              AutomationProperties.Name="{Binding Name.Summary}">
+                                                    <ToggleButton.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="Collapse all" Click="CollapseAllGroups_Click" />
+                                                            <MenuItem Header="Expand all" Click="ExpandAllGroups_Click" />
+                                                            <Separator />
+                                                            <MenuItem Header="Show as a list" Click="Ungroup_Click" />
+                                                        </ContextMenu>
+                                                    </ToggleButton.ContextMenu>
+                                                    <ToggleButton.Template>
+                                                        <ControlTemplate TargetType="ToggleButton">
+                                                            <Grid>
+                                                                <Border x:Name="Bg" CornerRadius="4" Background="Transparent" Padding="6,4,8,4">
+                                                                    <ContentPresenter />
+                                                                </Border>
+                                                                <Border x:Name="Pill" Width="3" Height="14" CornerRadius="1.5"
+                                                                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                        Background="{DynamicResource AccentFillColorDefaultBrush}" Visibility="Collapsed" />
+                                                            </Grid>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                                                </Trigger>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding Name.RowsHidden}" Value="True" />
+                                                                        <Condition Binding="{Binding Name.ContainsSelected}" Value="True" />
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter TargetName="Pill" Property="Visibility" Value="Visible" />
+                                                                    <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                                                </MultiDataTrigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </ToggleButton.Template>
+                                                    <DockPanel>
+                                                        <TextBlock x:Name="Chevron" DockPanel.Dock="Left" Text="&#xE70D;" FontFamily="{StaticResource IconFont}"
+                                                                   FontSize="9" Width="10" Margin="2,0,8,0" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                        <!-- The attention dot, as on a row: only while collapsed (expanded, the rows show their own). -->
+                                                        <Grid DockPanel.Dock="Right" Width="10" Height="10" Margin="8,0,2,0" VerticalAlignment="Center"
+                                                              Visibility="{Binding Name.ShowsWaiting, Converter={StaticResource BoolToVis}}">
+                                                            <Ellipse Fill="{DynamicResource AccentFillColorDefaultBrush}" />
+                                                            <Ellipse Margin="-3" Stroke="{DynamicResource AccentFillColorDefaultBrush}" StrokeThickness="1" Opacity="0.45" />
+                                                        </Grid>
+                                                        <TextBlock x:Name="Note" DockPanel.Dock="Right" Text="{Binding Name.Note}" FontSize="11" Margin="8,0,0,0"
+                                                                   VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                        <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="12">
+                                                            <Run Text="{Binding Name.Label, Mode=OneWay}" FontWeight="SemiBold"
+                                                                 Foreground="{DynamicResource TextFillColorSecondaryBrush}" /><Run
+                                                                 Text="  " /><Run Text="{Binding Name.Count, Mode=OneWay}"
+                                                                 Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                        </TextBlock>
+                                                    </DockPanel>
+                                                </ToggleButton>
+                                                <ContentPresenter x:Name="Rows" />
+                                            </StackPanel>
+                                            <ControlTemplate.Triggers>
+                                                <!-- Bound to Name.ShowsRows: false only for a collapsed group that has a header. -->
+                                                <Trigger Property="IsExpanded" Value="False">
+                                                    <Setter TargetName="Rows" Property="Visibility" Value="Collapsed" />
+                                                    <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
+                                                </Trigger>
+                                                <!-- A project with one workspace is just its row: the header would only repeat its name. -->
+                                                <DataTrigger Binding="{Binding Name.HasHeader}" Value="False">
+                                                    <Setter TargetName="Header" Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Name.ShowsWaiting}" Value="True">
+                                                    <Setter TargetName="Note" Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                    <Setter TargetName="Note" Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                                <!-- Rows whose project isn't known yet (the first moment after launch): no header. -->
+                                                <DataTrigger Binding="{Binding Name}" Value="{x:Null}">
+                                                    <Setter TargetName="Header" Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                                <!-- The rail has no room for headers: every tile shows, whatever is collapsed. -->
+                                                <DataTrigger Binding="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                    <Setter TargetName="Header" Property="Visibility" Value="Collapsed" />
+                                                    <Setter TargetName="Rows" Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                            </Expander.Template>
+                                                <ItemsPresenter />
+                                            </Expander>
+                                            <ControlTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding Name.HasHeader}" Value="True">
+                                                    <Setter TargetName="Block" Property="Margin" Value="0,4,0,4" />
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </GroupStyle.ContainerStyle>
+                    </GroupStyle>
+                </ListBox.GroupStyle>
+                <ListBox.ItemContainerStyle>
+                    <!-- One compact row: subtle fill on hover/selection plus the accent pill, level with the tile. -->
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="8,6,8,6" />
+                        <Setter Property="Margin" Value="0,1" />
+                        <Setter Property="FocusVisualStyle" Value="{StaticResource RowFocusVisual}" />
+                        <!-- Screen readers: the workspace name, its location, and "Needs you: …" while waiting. -->
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+                        <Setter Property="AutomationProperties.HelpText" Value="{Binding Details}" />
+                        <Setter Property="AutomationProperties.ItemStatus" Value="{Binding AttentionStatus}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Grid>
+                                        <Border x:Name="Bg" CornerRadius="6" Background="Transparent"
+                                                Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <!-- Level with the tile, not the middle of the row: a waiting row is two or three lines. -->
+                                        <Border x:Name="Pill" Width="3" Height="16" CornerRadius="1.5"
+                                                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,8,0,0"
+                                                Background="{DynamicResource AccentFillColorDefaultBrush}"
+                                                Visibility="Collapsed" />
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                            <Setter TargetName="Pill" Property="Visibility" Value="Visible" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <!-- The rail: the tile alone, centred in the 40px column. -->
+                            <DataTrigger Binding="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                <Setter Property="Padding" Value="10,6" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="{x:Type ws:Workspace}">
+                        <Grid Background="Transparent" MouseLeftButtonDown="WorkspaceItem_MouseLeftButtonDown"
+                              ToolTip="{Binding RowToolTip}" ToolTipService.InitialShowDelay="700">
+                            <Grid.ContextMenu>
+                                <ContextMenu Opened="RowMenu_Opened">
+                                    <MenuItem Header="Rename" InputGestureText="Ctrl+Shift+R" Click="Rename_Click" />
+                                    <!-- "Ctrl+D", or "Alt+Shift+=" when ctrlDSplits is off (set in WorkspaceController). -->
+                                    <MenuItem Header="Split right" InputGestureText="{DynamicResource SplitRightGesture}" Click="SplitRight_Click" />
+                                    <MenuItem Header="Split down" InputGestureText="Ctrl+Shift+D" Click="SplitDown_Click" />
+                                    <Separator />
+                                    <MenuItem Header="Move up" Click="MoveUp_Click" />
+                                    <MenuItem Header="Move down" Click="MoveDown_Click" />
+                                    <Separator />
+                                    <MenuItem Header="Close workspace" InputGestureText="Ctrl+Alt+W" Click="CloseWorkspace_Click" />
+                                </ContextMenu>
+                            </Grid.ContextMenu>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!-- The tile, with the attention dot on its corner while the sidebar is a rail. -->
+                            <Grid Grid.Column="0" VerticalAlignment="Top">
+                                <Border Style="{StaticResource SpaceTile}">
+                                    <TextBlock Text="{Binding TileLetter}" Style="{StaticResource SpaceTileLetter}" />
+                                </Border>
+                                <Grid Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,-5,0">
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding HasUnread}" Value="True" />
+                                                        <Condition Binding="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
+                                    <Ellipse Fill="{DynamicResource AccentFillColorDefaultBrush}"
+                                             Stroke="{DynamicResource ApplicationBackgroundBrush}" StrokeThickness="1.5" />
+                                </Grid>
+                            </Grid>
+
+                            <Grid Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Style="{StaticResource OpenOnly}">
+                                <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis"
+                                           Visibility="{Binding IsRenaming, Converter={StaticResource InverseBoolToVis}}" />
+                                <TextBox Text="{Binding Name, Mode=OneWay}" Padding="4,1" MinHeight="0"
+                                         AutomationProperties.Name="Workspace name"
+                                         Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}"
+                                         IsVisibleChanged="RenameBox_IsVisibleChanged"
+                                         KeyDown="RenameBox_KeyDown" LostKeyboardFocus="RenameBox_LostKeyboardFocus" />
+                            </Grid>
+
+                            <!-- The branch, on the right of the name; the name trims first only past half the row. -->
+                            <TextBlock Grid.Column="2" Text="{Binding Branch}" FontSize="12" Margin="10,0,0,0" MaxWidth="110"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource OpenOnly}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasBranch}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <!-- Attention dot: right edge, level with the name, so it never reads as the left-edge pill. -->
+                            <Grid Grid.Column="3" Width="10" Height="10" VerticalAlignment="Center" Margin="10,0,2,0">
+                                <Grid.Style>
+                                    <Style TargetType="Grid" BasedOn="{StaticResource OpenOnly}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasUnread}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Ellipse Fill="{DynamicResource AccentFillColorDefaultBrush}" />
+                                <Ellipse Margin="-3" Stroke="{DynamicResource AccentFillColorDefaultBrush}" StrokeThickness="1" Opacity="0.45" />
+                            </Grid>
+
+                            <!-- "Needs you · message", under the name. Present only while a pane is still waiting (derived in
+                                 Workspace.RefreshSummary). It may wrap onto a second line and trims after that. -->
+                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" FontSize="12" TextTrimming="CharacterEllipsis" Margin="10,3,0,0"
+                                       TextWrapping="Wrap" LineStackingStrategy="BlockLineHeight" LineHeight="16" MaxHeight="32"
+                                       ToolTip="{Binding WaitingMessages}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource OpenOnly}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasUnread}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                                <Run Text="Needs you" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" /><Run
+                                     Text="{Binding WaitingSuffix, Mode=OneWay}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            </TextBlock>
+
+                            <!-- Progress from `aghouse set-progress`: a 2px neutral line under the row; the tooltip has the label. -->
+                            <ProgressBar Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Margin="10,6,0,0"
+                                         Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100"
+                                         AutomationProperties.Name="{Binding ProgressText}">
+                                <ProgressBar.Style>
+                                    <Style TargetType="ProgressBar" BasedOn="{StaticResource QuietProgress}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasProgress}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ProgressBar.Style>
+                            </ProgressBar>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- ───── Agents: every agent that reported in or runs a known agent program, under Needs you / Working / Idle (WorkspaceController.Agents) ───── -->
+            <StackPanel Grid.Row="3" Style="{StaticResource OpenOnly}">
+                <Border Height="1" Margin="0,8,0,10" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+                <DockPanel Margin="6,0,0,2">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource Ghost}" Click="AgentsHistory_Click" Padding="6,5"
+                            ToolTip="Waiting list and earlier requests (Ctrl+Shift+I)" AutomationProperties.Name="Waiting list">
+                        <TextBlock Text="&#xE81C;" FontFamily="{StaticResource IconFont}" FontSize="12" />
+                    </Button>
+                    <TextBlock Text="Agents" Style="{StaticResource SectionLabel}" />
+                </DockPanel>
+                <TextBlock Text="No agents running. Start Claude Code, Codex or OpenCode in a pane and it shows up here."
+                           FontSize="12" TextWrapping="Wrap" Margin="6,4,6,4"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Visibility="{Binding HasAgents, Converter={StaticResource InverseBoolToVis}}" />
+                <ScrollViewer x:Name="AgentsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              Focusable="False">
+                    <ItemsControl ItemsSource="{Binding AgentItems}" Focusable="False">
+                        <ItemsControl.Resources>
+                            <!-- "Idle  3": the state in words, then how many. -->
+                            <DataTemplate DataType="{x:Type ws:AgentGroupHeader}">
+                                <TextBlock Margin="6,8,0,3" FontSize="12" AutomationProperties.Name="{Binding Summary}">
+                                    <Run Text="{Binding Label, Mode=OneWay}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" /><Run
+                                         Text="  " /><Run Text="{Binding Count, Mode=OneWay}" FontWeight="SemiBold" />
+                                </TextBlock>
+                            </DataTemplate>
+                            <!-- One agent: its glyph in the workspace's colour, "workspace · task", its age, its state mark. -->
+                            <DataTemplate DataType="{x:Type ws:AgentRow}">
+                                <Button Style="{StaticResource Ghost}" Click="AgentRow_Click" Padding="6,4" Margin="0,1"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                        ToolTip="{Binding ToolTip}" AutomationProperties.Name="{Binding AutomationName}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ContentControl Style="{StaticResource AgentMark}" Margin="0,0,8,0" />
+                                        <TextBlock Grid.Column="1" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                            <Run Text="{Binding WorkspaceName, Mode=OneWay}" /><Run
+                                                 Text="{Binding TaskSuffix, Mode=OneWay}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        </TextBlock>
+                                        <TextBlock Grid.Column="2" Text="{Binding Age}" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <!-- Needs you: the accent dot (the group heading says it in words). Working: a filled
+                                             neutral dot. Idle: a hollow ring. -->
+                                        <Grid Grid.Column="3" Width="10" Height="10" Margin="10,0,2,0" VerticalAlignment="Center">
+                                            <Grid Visibility="{Binding IsWaiting, Converter={StaticResource BoolToVis}}">
+                                                <Ellipse Fill="{DynamicResource AccentFillColorDefaultBrush}" />
+                                                <Ellipse Margin="-3" Stroke="{DynamicResource AccentFillColorDefaultBrush}" StrokeThickness="1" Opacity="0.45" />
+                                            </Grid>
+                                            <Ellipse Width="7" Height="7" Fill="{DynamicResource TextFillColorSecondaryBrush}"
+                                                     Visibility="{Binding IsWorking, Converter={StaticResource BoolToVis}}" />
+                                            <Ellipse Width="9" Height="9" Stroke="{DynamicResource TextFillColorSecondaryBrush}" StrokeThickness="1.2"
+                                                     Visibility="{Binding IsIdle, Converter={StaticResource BoolToVis}}" />
+                                        </Grid>
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.Resources>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+
+            <!-- ───── Footer: the status line (settings problem > "N waiting" > new version > setup > hint), then Settings ───── -->
+            <StackPanel Grid.Row="4" Margin="0,8,0,0">
+                <Border Height="1" Margin="0,0,0,6" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
                 <!-- A ghost button: it opens the waiting list (or Settings, for a problem or the setup hint). -->
-                <Button x:Name="FooterButton" Click="Footer_Click" Padding="6,4" Margin="0,0,4,0"
-                        Background="Transparent" BorderThickness="0"
-                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                <Button x:Name="FooterButton" Click="Footer_Click" Padding="6,4" Margin="0,0,0,2"
+                        HorizontalContentAlignment="Stretch"
                         ToolTip="{Binding FooterDetail}" ToolTipService.ShowDuration="30000"
                         AutomationProperties.Name="{Binding FooterText}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource Ghost}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
                 <DockPanel VerticalAlignment="Center">
                     <TextBlock x:Name="FooterIcon" DockPanel.Dock="Left" Text="&#xE7BA;" FontFamily="{StaticResource IconFont}"
                                FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center"
@@ -105,192 +705,21 @@
                     </TextBlock>
                 </DockPanel>
                 </Button>
-                <Button Grid.Column="1" Click="Settings_Click" ToolTip="Settings (Ctrl+,)"
-                        AutomationProperties.Name="Open settings" Padding="8,4"
-                        Background="Transparent" BorderThickness="0">
-                    <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="13" />
+                <!-- Settings: the gear and its name; on the rail, the gear alone. -->
+                <Button x:Name="SettingsButton" Style="{StaticResource Ghost}" Click="Settings_Click" Padding="6,5"
+                        HorizontalContentAlignment="Left" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                        ToolTip="Settings (Ctrl+,)" AutomationProperties.Name="Open settings">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="14" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Settings" FontSize="13" Margin="10,0,0,0" VerticalAlignment="Center" Style="{StaticResource OpenOnly}" />
+                    </StackPanel>
                 </Button>
-            </Grid>
+            </StackPanel>
+        </Grid>
 
-            <!-- Drag a row to reorder (MainWindow.WorkspaceList_*): a neutral insertion line shows where it lands. -->
-            <ListBox x:Name="WorkspaceList"
-                     ItemsSource="{Binding Workspaces}"
-                     SelectedItem="{Binding Selected, Mode=TwoWay}"
-                     Background="Transparent" BorderThickness="0"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     AllowDrop="True"
-                     PreviewMouseLeftButtonDown="WorkspaceList_PreviewMouseLeftButtonDown"
-                     PreviewMouseMove="WorkspaceList_PreviewMouseMove"
-                     DragOver="WorkspaceList_DragOver" DragLeave="WorkspaceList_DragLeave" Drop="WorkspaceList_Drop">
-                <ListBox.ItemContainerStyle>
-                    <!-- WinUI NavigationView-like item: subtle fill on hover/selection plus an accent pill. -->
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="Padding" Value="10,7,8,7" />
-                        <Setter Property="Margin" Value="0,1" />
-                        <Setter Property="FocusVisualStyle" Value="{StaticResource RowFocusVisual}" />
-                        <!-- Screen readers: the workspace name, its location, and "Needs you: …" while waiting. -->
-                        <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
-                        <Setter Property="AutomationProperties.HelpText" Value="{Binding Details}" />
-                        <Setter Property="AutomationProperties.ItemStatus" Value="{Binding AttentionStatus}" />
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ListBoxItem">
-                                    <Grid>
-                                        <Border x:Name="Bg" CornerRadius="4" Background="Transparent"
-                                                Padding="{TemplateBinding Padding}">
-                                            <ContentPresenter />
-                                        </Border>
-                                        <!-- Level with the name line, not the middle of the row: a busy row is
-                                             six lines tall, and the pill should mark the name, not a chip. -->
-                                        <Border x:Name="Pill" Width="3" Height="16" CornerRadius="1.5"
-                                                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,9,0,0"
-                                                Background="{DynamicResource AccentFillColorDefaultBrush}"
-                                                Visibility="Collapsed" />
-                                    </Grid>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-                                        </Trigger>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-                                            <Setter TargetName="Pill" Property="Visibility" Value="Visible" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </ListBox.ItemContainerStyle>
-                <ListBox.ItemTemplate>
-                    <DataTemplate DataType="{x:Type ws:Workspace}">
-                        <Grid Background="Transparent" MouseLeftButtonDown="WorkspaceItem_MouseLeftButtonDown">
-                            <Grid.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Header="Rename" InputGestureText="Ctrl+Shift+R" Click="Rename_Click" />
-                                    <!-- "Ctrl+D", or "Alt+Shift+=" when ctrlDSplits is off (set in WorkspaceController). -->
-                                    <MenuItem Header="Split right" InputGestureText="{DynamicResource SplitRightGesture}" Click="SplitRight_Click" />
-                                    <MenuItem Header="Split down" InputGestureText="Ctrl+Shift+D" Click="SplitDown_Click" />
-                                    <Separator />
-                                    <MenuItem Header="Move up" Click="MoveUp_Click" />
-                                    <MenuItem Header="Move down" Click="MoveDown_Click" />
-                                    <Separator />
-                                    <MenuItem Header="Close workspace" InputGestureText="Ctrl+Alt+W" Click="CloseWorkspace_Click" />
-                                </ContextMenu>
-                            </Grid.ContextMenu>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Attention dot: right edge, on the name line, so it never reads as the left-edge selection pill -->
-                            <Grid Grid.Column="1" Width="10" Height="10" VerticalAlignment="Top" Margin="8,5,2,0"
-                                  Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}">
-                                <Ellipse Fill="{DynamicResource AccentFillColorDefaultBrush}" />
-                                <Ellipse Margin="-3" Stroke="{DynamicResource AccentFillColorDefaultBrush}" StrokeThickness="1" Opacity="0.45" />
-                            </Grid>
-
-                            <StackPanel Grid.Column="0">
-                                <Grid>
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                               Visibility="{Binding IsRenaming, Converter={StaticResource InverseBoolToVis}}" />
-                                    <TextBox Text="{Binding Name, Mode=OneWay}" Padding="4,1" MinHeight="0"
-                                             AutomationProperties.Name="Workspace name"
-                                             Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}"
-                                             IsVisibleChanged="RenameBox_IsVisibleChanged"
-                                             KeyDown="RenameBox_KeyDown" LostKeyboardFocus="RenameBox_LostKeyboardFocus" />
-                                </Grid>
-                                <!-- "Needs you · message", straight under the name: attention is never pushed down by status lines.
-                                     Present only while a pane is still waiting (derived in Workspace.RefreshSummary). -->
-                                <TextBlock FontSize="12" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
-                                           ToolTip="{Binding WaitingMessages}"
-                                           Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}">
-                                    <Run Text="Needs you" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" /><Run
-                                         Text="{Binding WaitingSuffix, Mode=OneWay}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                </TextBlock>
-                                <!-- One meta line, git or not, so every idle row is the same height: branch and PR (if any), then location. -->
-                                <DockPanel Margin="0,2,0,0">
-                                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,0,10,0"
-                                                Visibility="{Binding HasBranch, Converter={StaticResource BoolToVis}}">
-                                        <!-- git branch icon -->
-                                        <Viewbox Width="11" Height="11" Margin="0,1,5,0" VerticalAlignment="Center">
-                                            <Path Width="16" Height="16" StrokeThickness="1.4" Stroke="{DynamicResource TextFillColorSecondaryBrush}"
-                                                  Data="M4,4.8 L4,11.2 M12,5.8 C12,9 4,8.5 4,11.2 M5.8,3 A1.8,1.8 0 1 1 2.2,3 A1.8,1.8 0 1 1 5.8,3 M5.8,13 A1.8,1.8 0 1 1 2.2,13 A1.8,1.8 0 1 1 5.8,13 M13.8,4 A1.8,1.8 0 1 1 10.2,4 A1.8,1.8 0 1 1 13.8,4" />
-                                        </Viewbox>
-                                        <TextBlock Text="{Binding Branch}" FontSize="12" TextTrimming="CharacterEllipsis" MaxWidth="96"
-                                                   ToolTip="{Binding Branch}"
-                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                    </StackPanel>
-                                    <!-- PR state in words, never in colour: "#123 open", "#123 merged". -->
-                                    <TextBlock DockPanel.Dock="Left" Text="{Binding PullRequest}" FontSize="12" Margin="0,0,10,0"
-                                               ToolTip="Pull request for this branch (from gh)"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               Visibility="{Binding HasPullRequest, Converter={StaticResource BoolToVis}}" />
-                                    <TextBlock Text="{Binding Location}" FontSize="12" TextTrimming="CharacterEllipsis"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                </DockPanel>
-
-                                <!-- Chips: agent state ("Working"), set-status entries, listening ports. Neutral, never the accent. -->
-                                <ItemsControl ItemsSource="{Binding Chips}" Margin="0,3,0,0" Focusable="False"
-                                              Visibility="{Binding HasChips, Converter={StaticResource BoolToVis}}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type ws:SidebarChip}">
-                                            <Border x:Name="Chip" CornerRadius="3" BorderThickness="1" Padding="5,0,5,1" Margin="0,2,4,0"
-                                                    Background="{DynamicResource ControlFillColorDefaultBrush}"
-                                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                                    ToolTip="{Binding ToolTip}" MouseLeftButtonUp="Chip_MouseLeftButtonUp">
-                                                <TextBlock Text="{Binding Text}" FontSize="11" TextTrimming="CharacterEllipsis" MaxWidth="150"
-                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            </Border>
-                                            <DataTemplate.Triggers>
-                                                <!-- A port opens in the browser, so it looks clickable on hover. -->
-                                                <MultiDataTrigger>
-                                                    <MultiDataTrigger.Conditions>
-                                                        <Condition Binding="{Binding Port, Converter={StaticResource IsNotNull}}" Value="True" />
-                                                        <Condition Binding="{Binding IsMouseOver, ElementName=Chip}" Value="True" />
-                                                    </MultiDataTrigger.Conditions>
-                                                    <Setter TargetName="Chip" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
-                                                    <Setter TargetName="Chip" Property="Cursor" Value="Hand" />
-                                                </MultiDataTrigger>
-                                            </DataTemplate.Triggers>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-
-                                <!-- Progress from `aghouse set-progress`: a caption, then a 2px neutral bar the width of the row. -->
-                                <StackPanel Margin="0,5,0,0" Visibility="{Binding HasProgress, Converter={StaticResource BoolToVis}}">
-                                    <TextBlock Text="{Binding ProgressText}" FontSize="11" TextTrimming="CharacterEllipsis"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                    <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Margin="0,3,0,0"
-                                                 Style="{StaticResource QuietProgress}"
-                                                 AutomationProperties.Name="{Binding ProgressText}" />
-                                </StackPanel>
-
-                                <!-- Newest `aghouse log` line; warn/error get the caution glyph, like a settings problem. -->
-                                <DockPanel Margin="0,4,0,0" ToolTip="{Binding LogHistory}"
-                                           Visibility="{Binding HasLog, Converter={StaticResource BoolToVis}}">
-                                    <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" FontFamily="{StaticResource IconFont}" FontSize="11"
-                                               Margin="0,1,5,0" VerticalAlignment="Top"
-                                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                                               AutomationProperties.Name="Warning"
-                                               Visibility="{Binding LastLogIsProblem, Converter={StaticResource BoolToVis}}" />
-                                    <TextBlock Text="{Binding LastLog}" FontSize="11" TextTrimming="CharacterEllipsis"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                </DockPanel>
-                            </StackPanel>
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-        </DockPanel>
-
-        <GridSplitter Grid.Column="1" Width="4" Background="Transparent" ResizeBehavior="PreviousAndNext" DragCompleted="SidebarSplitter_DragCompleted"
-                      HorizontalAlignment="Stretch" Focusable="False" />
+        <GridSplitter x:Name="SidebarSplitter" Grid.Column="1" Width="4" Background="Transparent" ResizeBehavior="PreviousAndNext"
+                      DragCompleted="SidebarSplitter_DragCompleted" HorizontalAlignment="Stretch" Focusable="False" />
 
         <!-- ───────────── Terminals: one WorkspaceView per workspace, only the selected one visible ───────────── -->
         <Grid x:Name="WorkspaceHost" Grid.Column="2" Margin="2,4,8,8" />

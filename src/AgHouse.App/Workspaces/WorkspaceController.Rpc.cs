@@ -554,6 +554,7 @@ public sealed partial class WorkspaceController
             "command-palette" => AppAction.CommandPalette,
             "waiting-list" => AppAction.WaitingList,
             "settings" => AppAction.Settings,
+            "toggle-sidebar" => AppAction.ToggleSidebar,
             _ => null,
         };
         Direction? direction = name switch
@@ -611,16 +612,12 @@ public sealed partial class WorkspaceController
     /// <summary>An agent reported from the caller's pane (a Claude Code hook): other panes may no longer type into it.</summary>
     private void MarkAgent(RpcRequest r)
     {
-        if (CallerOf(r) is { } caller) caller.AgentSeen = true;
+        if (CallerOf(r) is { } caller) { caller.AgentSeen = true; QueueAgentRefresh(); }
     }
 
-    /// <summary>Program names of coding agents, for panes whose agent hasn't reported through a hook.</summary>
-    private static readonly string[] AgentPrograms = ["claude", "codex", "gemini", "aider", "opencode", "cursor-agent", "amp", "copilot"];
-
+    /// <summary>A hook reported from it, or it runs a known agent program (the same list the Agents list uses).</summary>
     private static bool RunsAgent(PaneSession pane) =>
-        pane.AgentSeen
-        || pane.RunningPrograms().Any(p => AgentPrograms.Contains(
-            System.IO.Path.GetFileNameWithoutExtension(p), StringComparer.OrdinalIgnoreCase));
+        pane.AgentSeen || AgHouse.Core.AgentPrograms.NameOf(pane.RunningPrograms()) is not null;
 
     /// <summary>
     /// A pane typing into another pane that runs an agent could answer that agent's permission prompt,

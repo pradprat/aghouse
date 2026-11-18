@@ -64,6 +64,9 @@ public sealed class WindowDto
     public double Height { get; set; }
     public bool Maximized { get; set; }
     public double SidebarWidth { get; set; }
+
+    /// <summary>The sidebar is folded to its rail of tiles (Ctrl+Shift+B); <see cref="SidebarWidth"/> is its open width.</summary>
+    public bool SidebarCollapsed { get; set; }
 }
 
 public static class PaneLayoutSerializer

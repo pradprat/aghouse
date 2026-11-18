@@ -179,13 +179,13 @@ internal static class Program
             },
 
         // ───────────── Sidebar ─────────────
-        new("set-status", "Sidebar", "set-status <key> <text> [--workspace W]", "A chip on the workspace's sidebar row",
+        new("set-status", "Sidebar", "set-status <key> <text> [--workspace W]", "A status line for the workspace (its sidebar row's tooltip)",
             c => c.Positional.Count < 2
                 ? Task.FromResult(Fail("Usage: aghouse set-status <key> <text>"))
                 : CallAsync(Methods.SetStatus, new() { ["key"] = c.Pos(0), ["text"] = c.Rest(1), ["workspace"] = c.Opt("workspace"), ["pane"] = c.Pane }))
             { Example = "aghouse set-status tests \"Running tests\"" },
 
-        new("clear-status", "Sidebar", "clear-status <key> [--workspace W]", "Remove a chip",
+        new("clear-status", "Sidebar", "clear-status <key> [--workspace W]", "Remove a status line",
             c => c.Pos(0) is null
                 ? Task.FromResult(Fail("Usage: aghouse clear-status <key>"))
                 : CallAsync(Methods.ClearStatus, new() { ["key"] = c.Pos(0), ["workspace"] = c.Opt("workspace"), ["pane"] = c.Pane })),
@@ -742,7 +742,7 @@ internal static class Program
         }
 
         // The agent is busy: a prompt went in, or a tool just ran (including one the user approved).
-        // It shows as a "Working" chip on the sidebar row until Claude stops or asks for you.
+        // It shows under "Working" in the sidebar's Agents list until Claude stops or asks for you.
         if (eventName is "UserPromptSubmit" or "PostToolUse")
         {
             try

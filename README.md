@@ -10,7 +10,7 @@ A Windows-native terminal workspace app for running coding agents side by side, 
 - **Native UI:** WPF on .NET 10 with the built-in Fluent theme. You get Mica on Windows 11, a system title bar, and Windows toast notifications.
 - **Native terminals:** each pane is rendered by Windows Terminal's own DirectX engine over ConPTY, through [EasyWindowsTerminalControl](https://github.com/mitchcapper/EasyWindowsTerminalControl). Panes are not web views.
 - **Workspaces, splits and tabs:** workspaces live in a vertical sidebar. Each workspace is a tree of split panes, and each pane can hold several terminals as tabs.
-- **A sidebar that tells you what each agent is doing:** every row shows the cwd, git branch and pull request (through `gh`), plus chips for what's going on: "Working" while Claude Code is busy, anything a script sets with `aghouse set-status`, and the ports its dev servers listen on (click one to open it). Scripts can also show a progress line and a log line.
+- **A sidebar that tells you what each agent is doing:** **Spaces** lists your workspaces one line each, with a coloured letter tile (from the theme's own palette) and the git branch, plus "Needs you" and the agent's request while one waits. **Agents** below it lists every coding agent running in a pane (Claude Code, Codex, OpenCode and other known CLIs, or anything that reports in through `aghouse`), under Needs you, Working and Idle, with its task and how long it has been that way; click one to go to its pane. Hover a workspace for its folder, pull request (through `gh`), anything a script sets with `aghouse set-status`, its dev-server ports and its last log line; its right-click menu opens the ports. Ctrl+Shift+B folds the sidebar to a rail of tiles.
 - **Agent attention:** a pane can ask for attention with an escape code (OSC 9 / 99 / 777, or a bell) or with `aghouse notify`. That pane gets an accent ring and the workspace gets a dot. If the window isn't in front, you also get a toast and the taskbar button flashes.
 - **Everything a keystroke away:** a command palette (Ctrl+Shift+P) for every action, workspace and pane, and a waiting list (Ctrl+Shift+I) of the panes that need you, plus requests you already handled.
 - **Terminal basics:** find in a pane's output, per-pane text size, and pane zoom.
@@ -60,9 +60,10 @@ Pass `-NoInstaller` or `-NoZip` to skip either one. The version number comes fro
 | Ctrl+Shift+W | Close tab (the pane closes with its last tab) |
 | Ctrl+1…8, Ctrl+9 | Go to workspace N / last workspace |
 | Ctrl+Tab, Ctrl+Shift+Tab | Next / previous workspace |
-| Ctrl+Shift+U | Jump to the pane (and tab) that asked for you most recently |
+| Ctrl+Shift+U | Jump to the pane (and tab) at the top of the waiting list: an agent asking something comes before one that finished |
 | Ctrl+Shift+I | Waiting list: every pane that needs you, then earlier requests |
-| Ctrl+Shift+P | Command palette: any action, workspace or pane |
+| Ctrl+Shift+P | Command palette: any action, workspace or pane (also the search button in the sidebar) |
+| Ctrl+Shift+B | Fold the sidebar to a rail of workspace tiles, or open it again |
 | Ctrl+Shift+Enter | Zoom the focused pane to fill the workspace (again to show all) |
 | Ctrl+Shift+F | Find in the pane's output |
 | Ctrl+= / Ctrl+- / Ctrl+0 (or Ctrl+wheel) | Bigger / smaller / reset text in this pane |
@@ -73,9 +74,13 @@ Pass `-NoInstaller` or `-NoZip` to skip either one. The version number comes fro
 | Ctrl+V | Paste, as in Windows Terminal: text, copied files as their paths, or an image into Claude Code (sent as Alt+V, its image key) |
 | Right click | Copy the selection, or paste if nothing is selected |
 
-New workspaces are named after their folder ("aghouse", then "aghouse (2)"); double-click a name to rename it, and drag a row to reorder (or use Move up / Move down in its menu). The window remembers its size, position and sidebar width. When a workspace is split, each pane gets a slim header with a **✕** button that closes the pane. The header names the pane by what it is running (an agent's current task, `vim`), else its folder, else its shell, and numbers names that would otherwise repeat. A lone pane shows a header only while it needs you. Typing `exit` in a pane also closes it.
+New workspaces are named after their folder ("aghouse", then "aghouse (2)"); double-click a name to rename it, and drag a row to reorder (or use Move up / Move down in its menu). The window remembers its size, position, sidebar width and whether the sidebar is folded. Every pane has a slim header that names it by what it is running (an agent's current task, `vim`), else its folder, else its shell, and numbers names that would otherwise repeat. When a workspace is split, the header also has a **✕** button that closes the pane. Typing `exit` in a pane also closes it.
 
-A pane with two or more tabs shows them in that same header, with a **+** for another. Click a tab to show it, middle-click to close it, double-click to rename it, or right-click for Close other tabs. A tab that needs you while it's in the background says "Needs you" in the strip, and its pane gets the accent ring. Tabs and their folders are restored with the session.
+**Rearrange panes** by dragging a pane's header onto another pane (the six-dot grip in the middle of the header shows when a pane can move). Drop near an edge to put it on that side, or in the middle to swap the two. A preview shows where it will go, and Esc calls the drag off. The terminals keep running; only their places change. (`aghouse move-pane` does the same from a script.)
+
+**Group by project:** **Group by project** in the **⋯** menu next to "Spaces" (or `groupWorkspaces` in Settings) groups the sidebar by project (`aghouse run toggle-groups` does the same). Each group is a git repo, with its worktrees, or else a folder. A project with only one workspace shows just its row, with no header; dragging that row moves it between groups. Click a group's header to collapse it. A collapsed group still shows the dot and "2 waiting" when something in it needs you. Ctrl+1..9, Ctrl+Tab and a jump to a waiting pane open the group they land in. A row drags only within its own group, since its folder decides which group it is in. Drag a group's header to move the whole group. A workspace that `cd`s into another repo moves to that repo's group.
+
+A pane with two or more tabs shows them in that same header, with a **+** for another. Click a tab to show it, middle-click to close it, double-click to rename it, or right-click for Duplicate tab (a new tab right after it, in the same folder and shell) and Close other tabs. A pane with one tab has Duplicate tab on its header's right-click menu. A tab that needs you while it's in the background says "Needs you" in the strip, and its pane gets the accent ring. Tabs and their folders are restored with the session.
 
 **Pane zoom** (Ctrl+Shift+Enter) fills the workspace with one pane while the others keep running out of sight. The header says how many are hidden, and if one of them needs you it says so ("Needs you in GitHub (2) · Ctrl+Shift+U"); going to a hidden pane ends the zoom. **Find** (Ctrl+Shift+F) opens in the pane's header and lists the matching lines of its output, newest first; Enter copies the selected line. **Text size** changes for one pane at a time and shows as "110%" in its header.
 
@@ -110,7 +115,7 @@ aghouse read-pane [--lines 50] [--since CURSOR] [--json]
 aghouse wait-for "passing|failing" [--timeout 30] [--since CURSOR]   # exit 3 on timeout
 
 # The workspace's sidebar row (--workspace W to target another)
-aghouse set-status tests "Running tests"       # a chip; set the same key again to change it
+aghouse set-status tests "Running tests"       # a line in the row's tooltip; set the same key again to change it
 aghouse clear-status tests
 aghouse set-progress 0.4 --label Tests          # or 40%, or clear
 aghouse log "Lint found 3 warnings" --level warn

@@ -37,6 +37,8 @@ public enum AppAction
     CommandPalette,
     WaitingList,
     Settings,
+    /// <summary>Ctrl+Shift+B: the sidebar folds to a rail of tiles, or opens again.</summary>
+    ToggleSidebar,
 }
 
 public readonly record struct Shortcut(AppAction Action, int Index = 0, Direction Direction = Direction.Left);
@@ -159,6 +161,7 @@ public sealed class ShortcutRouter : IDisposable
                 'F' => new Shortcut(AppAction.Find),
                 Win32.VK_RETURN => new Shortcut(AppAction.ZoomPane),
                 'I' => new Shortcut(AppAction.WaitingList),
+                'B' => new Shortcut(AppAction.ToggleSidebar),
                 _ => null,
             };
         }
