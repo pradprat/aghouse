@@ -338,7 +338,7 @@ It takes over the pane's 26px header row while open. The tab strip and ✕ step 
 
 ### Pane zoom note and text size
 - **Pane zoom** (Ctrl+Shift+Enter): the zoomed pane fills the workspace. On the right of its header, "Zoomed · 2 hidden panes" in Meta, Secondary Text. When a hidden pane needs you it becomes "**Needs you** in GitHub (2) · Ctrl+Shift+U". Clicking it shows all panes again. There is no accent ring on the zoomed pane for a hidden pane's request, because the ring means *this* pane.
-- **Text size** (Ctrl+= / Ctrl+- / Ctrl+0, Ctrl+wheel over a pane): per pane, runtime only. While it isn't 100%, the header shows "118%" in Caption, Secondary Text (only where the pane has a header).
+- **Text size** (Ctrl+= / Ctrl+- / Ctrl+0, Ctrl+wheel over a pane): per pane, runtime only. While it isn't 100%, the header shows "118%" in Caption, Secondary Text.
 
 ### Settings window (Ctrl+,)
 A normal Fluent window with Mica and the system title bar, 780×600 and resizable, owned by the main window.
@@ -378,7 +378,7 @@ A 10px accent circle with a faint 1px halo ring. It sits at the right edge of th
 ### Don't:
 - **Don't** make it look like a web app in a frame: no custom title bar, web fonts, CSS-style cards, or Electron-style chrome.
 - **Don't** drift toward a hacker or neon terminal: no green-on-black, glow, scanlines or "cyber" styling.
-- **Don't** add busy IDE chrome: no toolbars, status bars or extra panels that take space from the terminals. The only tab strip is a pane's own 26px header, and only while it holds two or more tabs.
+- **Don't** add busy IDE chrome: no toolbars, status bars or extra panels that take space from the terminals. The only per-pane chrome is its own 26px header, which becomes the tab strip while it holds two or more tabs.
 - **Don't** colour status: no green "open", purple "merged", red error chips or accent progress bars. Words and the caution glyph carry meaning.
 - **Don't** splash brand colour across the UI. Logo sky, deep blue and amber stay in the logo and icon.
 - **Don't** use the accent for anything except selection and attention, and never use it to show focus.

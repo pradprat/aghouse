@@ -13,9 +13,9 @@ namespace AgHouse.App.Terminal;
 /// of which only the active one is visible. The header sits above the terminals, never on top of them
 /// (each terminal is a native HWND).
 ///
-/// With one tab the header is the pane header: name, "Needs you · message", ✕. It shows while the
-/// workspace is split, or on a lone pane while it needs you. With two or more tabs it is always shown
-/// and becomes the tab strip, so tabs add no new band of chrome.
+/// The header always shows. With one tab it is the pane header: name, "Needs you · message", and a ✕
+/// while the workspace is split (a lone pane's ✕ would close the whole workspace). With two or more
+/// tabs it becomes the tab strip, so tabs add no new band of chrome.
 /// </summary>
 public sealed class PaneSlot
 {
@@ -74,6 +74,11 @@ public sealed class PaneSlot
         _closeButton.Click += (_, _) => { if (ActiveTab is { } t) CloseRequested?.Invoke(t); };
 
         _singleRow = new AttentionFirstRow { Margin = new Thickness(2, 0, 0, 0), Children = { _headerText, _attentionText } };
+        // A lone tab has no tab strip, so its menu lives on the title row.
+        var duplicate = new MenuItem { Header = "Duplicate tab" };
+        duplicate.Click += (_, _) => { if (ActiveTab is { } t) DuplicateRequested?.Invoke(t); };
+        _singleRow.Background = Brushes.Transparent; // the whole row answers a right-click, not just the text
+        _singleRow.ContextMenu = new ContextMenu { Items = { duplicate } };
 
         _newTabButton = GhostButton("", 10, "New tab (Ctrl+Shift+T)", "New tab");
         _newTabButton.Margin = new Thickness(2, 0, 0, 0);
@@ -117,7 +122,7 @@ public sealed class PaneSlot
         row.Children.Add(right);
         row.Children.Add(new Grid { Children = { _singleRow, _tabStrip, _findBar } });
 
-        _header = new Grid { Height = 26, Background = Brushes.Transparent, Visibility = Visibility.Collapsed };
+        _header = new Grid { Height = 26, Background = Brushes.Transparent };
         _header.Children.Add(_headerTint);
         _header.Children.Add(row);
         _header.MouseLeftButtonDown += (_, _) => FocusRequested?.Invoke(this);
@@ -205,6 +210,8 @@ public sealed class PaneSlot
     public event Action<PaneSession>? CloseRequested;
     public event Action<PaneSession>? CloseOthersRequested;
     public event Action<PaneSlot>? NewTabRequested;
+    /// <summary>"Duplicate tab": a new tab right after this one, in its folder, running its shell.</summary>
+    public event Action<PaneSession>? DuplicateRequested;
     /// <summary>The user renamed a tab (its <see cref="PaneSession.CustomName"/> changed).</summary>
     public event Action<PaneSession>? Renamed;
 
@@ -296,12 +303,11 @@ public sealed class PaneSlot
         var focused = _isFocused && _isSplit;
         var single = _tabs.Count == 1 ? _tabs[0] : null;
 
-        // A lone single-tab pane gets a header only to say "Needs you" (the Say-It Rule): its terminal
-        // gives up a row until the pane is handled. No ✕ or name there: the sidebar names the workspace.
+        // Every pane says what it's running, split or not. A lone pane gets no ✕ (it would close the
+        // whole workspace; Ctrl+Shift+W still does) and no focus state (there's nothing to tell it from).
         // Find takes the whole row while it's open; the zoom note stays, so a hidden request is never lost.
         var finding = IsFinding;
         var zoomed = _hiddenPanes > 0;
-        _header.Visibility = _isSplit || waiting || multi || finding || zoomed ? Visibility.Visible : Visibility.Collapsed;
         _singleRow.Visibility = multi || finding ? Visibility.Collapsed : Visibility.Visible;
         _tabStrip.Visibility = multi && !finding ? Visibility.Visible : Visibility.Collapsed;
         _closeButton.Visibility = _isSplit && !multi && !finding ? Visibility.Visible : Visibility.Collapsed;
@@ -334,8 +340,10 @@ public sealed class PaneSlot
             _tabStrip.InvalidateMeasure();
         }
 
+        // Focus is the strong neutral stroke, not Primary Text: the 2px accent ring of a pane that needs you
+        // must be the loudest edge in the window, and a white (or black) frame outshouted it.
         var (frameKey, thickness) = waiting ? ("AccentFillColorDefaultBrush", 2)
-            : focused ? ("TextFillColorPrimaryBrush", 1)
+            : focused ? ("ControlStrongStrokeColorDefaultBrush", 1)
             : ("ControlStrokeColorDefaultBrush", 1);
         SetBrush(Frame, Border.BorderBrushProperty, ref _frameBrushKey, frameKey);
         Frame.BorderThickness = new Thickness(thickness);
@@ -464,13 +472,15 @@ public sealed class PaneSlot
                 if (e.ChangedButton == MouseButton.Middle) { _slot.CloseRequested?.Invoke(Pane); e.Handled = true; }
             };
 
+            var duplicate = new MenuItem { Header = "Duplicate tab" };
+            duplicate.Click += (_, _) => _slot.DuplicateRequested?.Invoke(Pane);
             var rename = new MenuItem { Header = "Rename tab" };
             rename.Click += (_, _) => BeginRename();
             var close = new MenuItem { Header = "Close tab", InputGestureText = "Ctrl+Shift+W" };
             close.Click += (_, _) => _slot.CloseRequested?.Invoke(Pane);
             var closeOthers = new MenuItem { Header = "Close other tabs" };
             closeOthers.Click += (_, _) => _slot.CloseOthersRequested?.Invoke(Pane);
-            Root.ContextMenu = new ContextMenu { Items = { rename, new Separator(), close, closeOthers } };
+            Root.ContextMenu = new ContextMenu { Items = { duplicate, rename, new Separator(), close, closeOthers } };
         }
 
         public PaneSession Pane { get; }

@@ -44,19 +44,23 @@ public sealed class TabStripPanel : Panel
         var tabs = count - 1;
         var natural = new double[tabs];
         for (var i = 0; i < tabs; i++) natural[i] = Math.Ceiling(InternalChildren[i].DesiredSize.Width);
-        var total = natural.Sum(w => Math.Min(w, MaxTab));
-        var room = double.IsInfinity(available.Width) ? total : Math.Max(0, available.Width - plus);
+        // A tab that needs you isn't held to MaxTab: "Needs you · codex: migrate schema" is longer than 180px,
+        // and it may take up to KeepWideShare of the strip whether or not the strip is crowded.
+        var wide = Enumerable.Range(0, tabs).Where(i => GetKeepWide(InternalChildren[i])).ToList();
+        var others = tabs - wide.Count;
         var widths = new double[tabs];
-        for (var i = 0; i < tabs; i++) widths[i] = Math.Min(natural[i], MaxTab);
-        if (tabs > 0 && total > room)
+        for (var i = 0; i < tabs; i++) widths[i] = wide.Contains(i) ? natural[i] : Math.Min(natural[i], MaxTab);
+        var room = double.IsInfinity(available.Width) ? widths.Sum() : Math.Max(0, available.Width - plus);
+        var wideWant = wide.Sum(i => widths[i]);
+        var wideCap = others == 0 ? room : room * KeepWideShare;
+        if (wideWant > wideCap)
         {
-            // Crowded: tabs that must stay readable first (up to a share of the strip), the rest split what's left.
-            var wide = Enumerable.Range(0, tabs).Where(i => GetKeepWide(InternalChildren[i])).ToList();
-            var others = tabs - wide.Count;
-            var wideWant = wide.Sum(i => widths[i]);
-            var wideCap = others == 0 ? room : room * KeepWideShare;
-            var scale = wideWant > wideCap ? wideCap / wideWant : 1;
+            var scale = wideCap / wideWant;
             foreach (var i in wide) widths[i] = Math.Floor(widths[i] * scale);
+        }
+        if (tabs > 0 && widths.Sum() > room)
+        {
+            // Crowded: the tabs that must stay readable keep their (capped) width, the rest split what's left.
             var rest = others == 0 ? 0 : Math.Floor((room - wide.Sum(i => widths[i])) / others);
             for (var i = 0; i < tabs; i++)
             {

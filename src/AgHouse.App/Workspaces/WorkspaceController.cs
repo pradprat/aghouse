@@ -339,6 +339,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
         slot.CloseRequested += p => RequestClosePane(p.Id);
         slot.CloseOthersRequested += p => CloseOtherTabs(p.Id);
         slot.NewTabRequested += s => { if (s.ActiveTab is { } t) NewTab(t.Id); };
+        slot.DuplicateRequested += p => NewTab(p.Id);
         slot.Renamed += _ => { UpdateLabels(ws); ScheduleSave(); };
         slot.UnzoomRequested += _ => { if (ws.ZoomedSlotId is not null) ToggleZoom(ws); };
         ws.Slots[slot.Id] = slot;
@@ -653,7 +654,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     {
         if (ws.ZoomedSlotId is { } z && (!ws.Slots.ContainsKey(z) || ws.Slots.Count < 2)) ws.ZoomedSlotId = null;
         ws.View.Render(ws.Tree, id => ws.Slots[id].Frame, ws.ZoomedSlotId);
-        // Headers (with the close button) while split; a lone pane shows one only while it needs you or holds tabs.
+        // Every pane has a header; only split panes get its ✕ and a focus state.
         var split = ws.Slots.Count > 1;
         foreach (var slot in ws.Slots.Values) slot.IsSplit = split;
         UpdateLabels(ws);

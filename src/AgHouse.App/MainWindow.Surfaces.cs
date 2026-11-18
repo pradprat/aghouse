@@ -175,11 +175,13 @@ public partial class MainWindow
             foreach (var pane in ws.PanesInOrder())
             {
                 var paneId = pane.Id;
+                // A tab says so: in a pane with two or more tabs it's one of them, not a pane of its own.
+                var isTab = ws.SlotOf(pane) is { Tabs.Count: > 1 };
                 items.Add(new PaletteItem
                 {
-                    Group = "Panes",
+                    Group = "Panes and tabs",
                     Title = pane.Label,
-                    Detail = $"in {ws.Name}",
+                    Detail = isTab ? $"tab in {ws.Name}" : $"in {ws.Name}",
                     Keywords = "pane tab " + pane.Cwd,
                     Order = order++,
                     Run = () => Controller.FocusPane(paneId),
@@ -202,6 +204,7 @@ public partial class MainWindow
             Action($"New workspace with {profile.Name}", null, () => Controller.NewWorkspace(profileId: id), "shell profile");
         }
         Shortcut("New tab", "Ctrl+Shift+T", AppAction.NewTab);
+        Action("Duplicate tab", null, () => Controller.NewTab(), "copy clone same folder shell");
         Shortcut("Split right", splitRight, AppAction.SplitRight, "pane");
         Shortcut("Split down", "Ctrl+Shift+D", AppAction.SplitDown, "pane");
         Shortcut(zoomed ? "Show all panes" : "Zoom pane", "Ctrl+Shift+Enter", AppAction.ZoomPane, "maximize fill unzoom");
