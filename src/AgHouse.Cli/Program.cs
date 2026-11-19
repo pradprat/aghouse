@@ -15,6 +15,13 @@ internal sealed record Command(string Name, string Group, string Synopsis, strin
     public string[] Aliases { get; init; } = [];
     public string? Example { get; init; }
     public string? Details { get; init; }
+
+    /// <summary>Options this command takes besides the ones its <see cref="Synopsis"/> shows (older spellings, --pane where it's implied).</summary>
+    public string[] Flags { get; init; } = [];
+
+    /// <summary>Every option this command accepts: the --names in its synopsis, <see cref="Flags"/>, and --help / --json, which every command takes.</summary>
+    public HashSet<string> Options =>
+        [.. Regex.Matches(Synopsis, @"--([a-z][a-z-]*)").Select(m => m.Groups[1].Value), .. Flags, "help", "h", "json"];
 }
 
 /// <summary>The parsed command line for one command.</summary>
@@ -55,7 +62,7 @@ internal static class Program
             })) { Example = "aghouse new-workspace --cwd C:\\src\\api --profile pwsh --name api" },
 
         new("select-workspace", "Workspaces", "select-workspace <id|name|index>", "Show a workspace",
-            c => CallAsync(Methods.SelectWorkspace, new() { ["workspace"] = c.Pos(0) ?? c.Opt("workspace") })),
+            c => CallAsync(Methods.SelectWorkspace, new() { ["workspace"] = c.Pos(0) ?? c.Opt("workspace") })) { Flags = ["workspace"] },
 
         new("rename-workspace", "Workspaces", "rename-workspace <name> [--workspace W]", "Rename this workspace (or W)",
             c => CallAsync(Methods.RenameWorkspace, new()
@@ -63,7 +70,7 @@ internal static class Program
                 ["name"] = c.Positional.Count > 0 ? c.Rest() : c.Opt("name"),
                 ["workspace"] = c.Opt("workspace"),
                 ["pane"] = c.CurrentPane,
-            })),
+            })) { Flags = ["name"] },
 
         new("move-workspace", "Workspaces", "move-workspace <position> [--workspace W]", "Reorder the sidebar; 1 is the top",
             c => c.Pos(0) is null
@@ -71,7 +78,7 @@ internal static class Program
                 : CallAsync(Methods.MoveWorkspace, new() { ["index"] = c.Pos(0), ["workspace"] = c.Opt("workspace"), ["pane"] = c.CurrentPane })),
 
         new("close-workspace", "Workspaces", "close-workspace [W]", "Close a workspace; ends what runs there without asking",
-            c => CallAsync(Methods.CloseWorkspace, new() { ["workspace"] = c.Pos(0) ?? c.Opt("workspace"), ["pane"] = c.CurrentPane })),
+            c => CallAsync(Methods.CloseWorkspace, new() { ["workspace"] = c.Pos(0) ?? c.Opt("workspace"), ["pane"] = c.CurrentPane })) { Flags = ["workspace"] },
 
         // ───────────── Panes and tabs ─────────────
         new("new-split", "Panes and tabs", "new-split [right|down|left|up] [--pane ID] [--profile ID] [--cwd DIR]",
@@ -82,7 +89,7 @@ internal static class Program
                 ["pane"] = c.Pane,
                 ["profile"] = c.Opt("profile"),
                 ["cwd"] = c.Opt("cwd") is { } cwd ? Path.GetFullPath(cwd) : null,
-            })) { Example = "aghouse new-split down --profile wsl-Ubuntu" },
+            })) { Example = "aghouse new-split down --profile wsl-Ubuntu", Flags = ["direction"] },
 
         new("new-tab", "Panes and tabs", "new-tab [--pane ID] [--profile ID] [--cwd DIR]", "A tab in the same pane, right after it",
             c => CallAsync(Methods.NewTab, new()
@@ -93,13 +100,13 @@ internal static class Program
             })),
 
         new("focus-pane", "Panes and tabs", "focus-pane <id>", "Show a pane or tab and focus it",
-            c => CallAsync(Methods.FocusPane, new() { ["pane"] = c.Pos(0) ?? c.Opt("pane") })) { Aliases = ["select-tab"] },
+            c => CallAsync(Methods.FocusPane, new() { ["pane"] = c.Pos(0) ?? c.Opt("pane") })) { Aliases = ["select-tab"], Flags = ["pane"] },
 
         new("close-pane", "Panes and tabs", "close-pane [id]", "Close a tab; a pane goes with its last tab. Never asks",
-            c => CallAsync(Methods.ClosePane, new() { ["pane"] = c.Pos(0) ?? c.Pane })) { Aliases = ["close-tab"] },
+            c => CallAsync(Methods.ClosePane, new() { ["pane"] = c.Pos(0) ?? c.Pane })) { Aliases = ["close-tab"], Flags = ["pane"] },
 
         new("zoom-pane", "Panes and tabs", "zoom-pane [id]", "Fill the workspace with one pane, or show all again",
-            c => CallAsync(Methods.ZoomPane, new() { ["pane"] = c.Pos(0) ?? c.Pane })),
+            c => CallAsync(Methods.ZoomPane, new() { ["pane"] = c.Pos(0) ?? c.Pane })) { Flags = ["pane"] },
 
         new("move-pane", "Panes and tabs", "move-pane <left|right|up|down|swap> --to ID [--pane ID]",
             "Move a pane to one side of another pane, or swap the two (like dragging its header)",
@@ -114,6 +121,7 @@ internal static class Program
             {
                 Example = "aghouse move-pane left --to p3",
                 Details = "Ids can be any tab of a pane: the whole pane moves, with all its tabs. 'left' puts this pane on the left of the --to pane.",
+                Flags = ["side"],
             },
 
         new("rename-pane", "Panes and tabs", "rename-pane <name> [--pane ID] | --clear", "Name a pane or tab; --clear goes back to the automatic name",
@@ -132,6 +140,7 @@ internal static class Program
             }))
             {
                 Aliases = ["restart-tab"],
+                Flags = ["pane"],
                 Example = "aghouse restart-pane --profile cmd",
                 Details = "The new terminal has a new pane id. Restarting the pane this runs in ends this command's own shell.",
             },
@@ -143,6 +152,7 @@ internal static class Program
             "Type text into a pane (stdin if no text); with --wait-for, wait for output matching REGEX", SendTextAsync)
             {
                 Example = "aghouse send-text \"npm test\" --enter --pane p3 --wait-for \"passing|failing\" --timeout 300",
+                Flags = ["text", "ignore-case"],
                 Details = "--wait-for watches only what comes after the text went in, ignores the shell's echo of the command, " +
                           "prints the matching line and exits 3 on timeout (default 30 s, 0 = no limit). --json prints the " +
                           "pane id and the cursor from just before the text went in (for read-pane --since).",
@@ -164,14 +174,14 @@ internal static class Program
             {
                 Example = "aghouse read-pane --pane p3 --lines 20",
                 Details = "Plain text with colours and cursor moves removed; the line still being written (a prompt) comes last. " +
-                          "--json adds 'next', a cursor to pass to --since to read only what came after, and 'partial', the " +
+                          "--json adds 'cursor', to pass to --since to read only what came after, and 'partial', the " +
                           "unfinished line. Full-screen programs that redraw (vim, Claude Code) read back as fragments.",
             },
 
         new("wait-for", "Shell input and output", "wait-for <regex> [--pane ID] [--timeout SECONDS] [--since CURSOR] [--ignore-case]",
             "Wait until a pane prints a line matching regex; prints it. Exit 3 on timeout (default 30 s, 0 = no limit)", WaitForAsync)
             {
-                Example = "$c = (aghouse read-pane --lines 0 --json | ConvertFrom-Json).next; aghouse send-text \"npm test\" --enter; aghouse wait-for \"passing|failing\" --since $c --timeout 300",
+                Example = "$c = (aghouse read-pane --lines 0 --json | ConvertFrom-Json).cursor; aghouse send-text \"npm test\" --enter; aghouse wait-for \"passing|failing\" --since $c --timeout 300",
                 Details = "To run a command and wait in one step, use send-text --wait-for. " +
                           "Only output after the cursor counts (default: from when wait-for starts). Take the cursor before " +
                           "sending a command so fast output isn't missed. The command you typed is echoed too, so match what " +
@@ -183,22 +193,22 @@ internal static class Program
             c => c.Positional.Count < 2
                 ? Task.FromResult(Fail("Usage: aghouse set-status <key> <text>"))
                 : CallAsync(Methods.SetStatus, new() { ["key"] = c.Pos(0), ["text"] = c.Rest(1), ["workspace"] = c.Opt("workspace"), ["pane"] = c.Pane }))
-            { Example = "aghouse set-status tests \"Running tests\"" },
+            { Example = "aghouse set-status tests \"Running tests\"", Flags = ["pane"] },
 
         new("clear-status", "Sidebar", "clear-status <key> [--workspace W]", "Remove a status line",
             c => c.Pos(0) is null
                 ? Task.FromResult(Fail("Usage: aghouse clear-status <key>"))
-                : CallAsync(Methods.ClearStatus, new() { ["key"] = c.Pos(0), ["workspace"] = c.Opt("workspace"), ["pane"] = c.Pane })),
+                : CallAsync(Methods.ClearStatus, new() { ["key"] = c.Pos(0), ["workspace"] = c.Opt("workspace"), ["pane"] = c.Pane })) { Flags = ["pane"] },
 
         new("set-progress", "Sidebar", "set-progress <0..1|40%|clear> [--label L] [--workspace W]", "A progress line on the row",
             c => c.Pos(0) is null
                 ? Task.FromResult(Fail("Usage: aghouse set-progress <0..1|40%|clear> [--label L]"))
-                : CallAsync(Methods.SetProgress, new() { ["value"] = c.Pos(0), ["label"] = c.Opt("label"), ["workspace"] = c.Opt("workspace"), ["pane"] = c.Pane })),
+                : CallAsync(Methods.SetProgress, new() { ["value"] = c.Pos(0), ["label"] = c.Opt("label"), ["workspace"] = c.Opt("workspace"), ["pane"] = c.Pane })) { Flags = ["pane"] },
 
         new("log", "Sidebar", "log <text> [--level info|warn|error] [--workspace W]", "A log line on the row",
             c => c.Positional.Count == 0
                 ? Task.FromResult(Fail("Usage: aghouse log <text> [--level info|warn|error]"))
-                : CallAsync(Methods.Log, new() { ["text"] = c.Rest(), ["level"] = c.Opt("level"), ["workspace"] = c.Opt("workspace"), ["pane"] = c.Pane })),
+                : CallAsync(Methods.Log, new() { ["text"] = c.Rest(), ["level"] = c.Opt("level"), ["workspace"] = c.Opt("workspace"), ["pane"] = c.Pane })) { Flags = ["pane"] },
 
         // ───────────── Notifications ─────────────
         new("notify", "Notifications", "notify [--title T] [--body B] [--pane ID] [--finished]",
@@ -251,9 +261,9 @@ internal static class Program
         new("quit", "App", "quit [--force]", "Close aghouse; asks first if programs are running, unless --force",
             c => CallAsync(Methods.Quit, new() { ["force"] = c.Has("force") ? "true" : null })),
 
-        new("update", "App", "update [--json]", "Is there a newer aghouse? Asks GitHub Releases (aghouse needn't be running)", UpdateAsync)
+        new("check-update", "App", "check-update [--json]", "Is there a newer aghouse? Asks GitHub Releases (aghouse needn't be running)", UpdateAsync)
             {
-                Example = "aghouse update",
+                Example = "aghouse check-update",
                 Details = "Only checks. An installed aghouse installs new versions itself when it quits (setting 'updates': auto), " +
                           "or now with 'aghouse run restart-to-update', which asks first if programs are running. Exit 1 if GitHub can't be reached.",
             },
@@ -274,7 +284,7 @@ internal static class Program
                           "(aghouse hooks install claude). Other agents (Codex, Gemini CLI, Cursor ...) read it from AGENTS.md.",
             },
 
-        new("claude-hook", "Integrations", "claude-hook", "For Claude Code hooks: reads hook JSON on stdin",
+        new("claude-hook", "Integrations", "claude-hook", "Internal: what Claude Code's hooks run (reads hook JSON on stdin). Set up with 'hooks install claude'",
             c => ClaudeHookAsync(c.CurrentPane)),
 
         new("hooks", "Integrations", "hooks install|status|print claude|opencode [--yes]",
@@ -300,11 +310,15 @@ internal static class Program
     {
         if (args.Length == 0 || args[0] is "-h" or "--help") return Help(null);
 
+        // Renamed before 1.0, so "update" stays free to mean installing one day.
+        if (args[0] == "update") return Fail("'aghouse update' is now 'aghouse check-update'.");
         var command = Find(args[0]);
         if (command is null) return Fail($"Unknown command '{args[0]}'. Run 'aghouse help'.");
 
         var (positional, options) = Parse(args[1..]);
-        if (options.ContainsKey("help") || options.ContainsKey("h")) return Help(command.Name);
+        if (options.ContainsKey("help") || options.ContainsKey("h") || positional is ["-h", ..]) return Help(command.Name);
+        if (UnknownOption(command, options.Keys) is { } unknown)
+            return Fail($"'{command.Name}' doesn't take --{unknown}. Usage: aghouse {command.Synopsis}");
         var ctx = new Ctx(positional, options, Environment.GetEnvironmentVariable(AgEnv.PaneId));
 
         try
@@ -320,6 +334,22 @@ internal static class Program
             return Fail($"Could not talk to aghouse: {ex.Message}", ExitNotRunning);
         }
     }
+
+    /// <summary>
+    /// The first option <paramref name="command"/> doesn't take, or null. A misspelt option used to be
+    /// ignored, so "close-pane --pnae p3" closed the pane it ran in instead of p3.
+    /// </summary>
+    internal static string? UnknownOption(Command command, IEnumerable<string> given)
+    {
+        var known = command.Options;
+        return given.FirstOrDefault(k => !known.Contains(k.ToLowerInvariant()));
+    }
+
+    /// <summary>For tests: a command by name or alias.</summary>
+    internal static Command? CommandNamed(string name) => Find(name);
+
+    /// <summary>For tests: every command.</summary>
+    internal static IReadOnlyList<Command> AllCommands => Commands;
 
     /// <summary>For tests: the guide must only name commands that exist.</summary>
     internal static bool IsCommand(string name) => Find(name) is not null;
@@ -522,7 +552,7 @@ internal static class Program
                 Console.WriteLine(partial);
                 return ExitOk;
             }
-            cursor = result["next"]!.ToString();
+            cursor = result["cursor"]!.ToString();
 
             if (timeout > 0 && clock.Elapsed.TotalSeconds >= timeout)
                 return Fail($"Timed out after {timeout:0.#} s waiting for /{pattern}/ in pane {pane}.", ExitTimeout);

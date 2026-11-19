@@ -290,6 +290,9 @@ public sealed class Workspace : ObservableObject
     /// <summary>TCP ports programs in this workspace listen on (the row's context menu opens them).</summary>
     public IReadOnlyList<int> Ports => _ports;
 
+    /// <summary>Every status entry, oldest first: agents' own ("agent", with their pane) and `aghouse set-status` lines.</summary>
+    public IEnumerable<(string Key, string Text, string? PaneId)> StatusEntries => _status.Select(s => (s.Key, s.Text, s.PaneId));
+
     public void SetPorts(IReadOnlyList<int> ports)
     {
         if (ports.SequenceEqual(_ports)) return;

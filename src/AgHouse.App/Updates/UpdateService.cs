@@ -219,7 +219,10 @@ public sealed class UpdateService : IDisposable
         try
         {
             // Hash once more: the file sat in a folder for a while.
-            if (_expectedHash is null || HashAsync(path, CancellationToken.None).GetAwaiter().GetResult() != _expectedHash)
+            // Synchronously: this runs on the UI thread during shutdown, and blocking on HashAsync there
+            // deadlocks (its continuation waits for the dispatcher this call is blocking), leaving a
+            // windowless aghouse that never exits and never installs.
+            if (_expectedHash is null || Hash(path) != _expectedHash)
             {
                 Log.Write("update: installer changed since it was verified; not running it");
                 return;
@@ -236,6 +239,12 @@ public sealed class UpdateService : IDisposable
             // Win32Exception 1223: the user said no to the admin prompt for an all-users install.
             Log.Write($"update: couldn't start the installer: {ex.Message}");
         }
+    }
+
+    private static string Hash(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return Convert.ToHexStringLower(SHA256.HashData(stream));
     }
 
     private static async Task<string> HashAsync(string path, CancellationToken ct)

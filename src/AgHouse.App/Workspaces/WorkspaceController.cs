@@ -997,7 +997,7 @@ public sealed partial class WorkspaceController : ObservableObject, IDisposable
     private void RememberHandled(Workspace ws, PaneSession pane, string? message, DateTime askedAt)
     {
         if (_shuttingDown) return;
-        Earlier.Insert(0, new HandledRequest(ws.Name, pane.Id, pane.Label, message, askedAt, DateTime.UtcNow));
+        Earlier.Insert(0, new HandledRequest(ws.Id, ws.Name, pane.Id, pane.Label, message, askedAt, DateTime.UtcNow));
         while (Earlier.Count > 20) Earlier.RemoveAt(Earlier.Count - 1);
     }
 

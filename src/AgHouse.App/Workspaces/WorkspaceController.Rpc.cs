@@ -36,7 +36,7 @@ public sealed partial class WorkspaceController
         switch (r.Method)
         {
             case Methods.Ping:
-                return new JsonObject { ["app"] = "aghouse", ["version"] = typeof(WorkspaceController).Assembly.GetName().Version?.ToString() };
+                return new JsonObject { ["app"] = "aghouse", ["version"] = AgHouse.Core.Updates.ReleaseFeed.CurrentVersion(typeof(WorkspaceController).Assembly).ToString(3) };
 
             case Methods.Activate:
                 BringToFront();
@@ -47,7 +47,7 @@ public sealed partial class WorkspaceController
 
             case Methods.NewWorkspace:
             {
-                var ws = NewWorkspace(r.Get("cwd"), r.Get("profile"), r.Get("name"));
+                var ws = NewWorkspace(CheckedCwd(r), CheckedProfile(r), r.Get("name"));
                 return new JsonObject { ["workspaceId"] = ws.Id, ["paneId"] = ws.ActivePaneId };
             }
 
@@ -75,7 +75,7 @@ public sealed partial class WorkspaceController
                 };
                 var source = r.Get("pane");
                 if (source is not null) RequirePane(source);
-                var pane = Split(side, source, r.Get("profile"), r.Get("cwd"))
+                var pane = Split(side, source, CheckedProfile(r), CheckedCwd(r))
                            ?? throw new RpcException("No pane to split.");
                 return new JsonObject { ["paneId"] = pane.Id };
             }
@@ -84,7 +84,7 @@ public sealed partial class WorkspaceController
             {
                 var source = r.Get("pane");
                 if (source is not null) RequirePane(source);
-                var pane = NewTab(source, r.Get("profile"), r.Get("cwd")) ?? throw new RpcException("No pane to add a tab to.");
+                var pane = NewTab(source, CheckedProfile(r), CheckedCwd(r)) ?? throw new RpcException("No pane to add a tab to.");
                 return new JsonObject { ["paneId"] = pane.Id };
             }
 
@@ -204,7 +204,7 @@ public sealed partial class WorkspaceController
                     ["paneId"] = id,
                     ["lines"] = new JsonArray(read.Lines.Select(x => (JsonNode?)JsonValue.Create(x)).ToArray()),
                     ["partial"] = read.Partial,
-                    ["next"] = read.Next,
+                    ["cursor"] = read.Next,
                     ["truncated"] = read.Truncated,
                 };
             }
@@ -234,7 +234,7 @@ public sealed partial class WorkspaceController
                 var id = RequirePane(r.Get("pane"));
                 var profile = r.Get("profile");
                 if (profile is not null) RequireProfile(profile);
-                var pane = RestartPane(id, profile, r.Get("cwd")) ?? throw new RpcException($"Pane '{id}' not found.");
+                var pane = RestartPane(id, profile, CheckedCwd(r)) ?? throw new RpcException($"Pane '{id}' not found.");
                 return new JsonObject { ["oldPaneId"] = id, ["paneId"] = pane.Id, ["profile"] = pane.Profile.Id };
             }
 
@@ -385,7 +385,7 @@ public sealed partial class WorkspaceController
                     ["visible"] = ReferenceEquals(slot?.ActiveTab, p),
                     ["name"] = p.Label,
                     ["active"] = p.Id == ws.ActivePaneId,
-                    ["unread"] = p.HasUnread,
+                    ["needsYou"] = p.HasUnread,
                     ["profile"] = p.Profile.Id,
                     ["cwd"] = p.Cwd,
                     ["title"] = p.Title,
@@ -397,12 +397,13 @@ public sealed partial class WorkspaceController
                 ["index"] = i + 1,
                 ["name"] = ws.Name,
                 ["selected"] = ws.IsSelected,
-                ["unread"] = ws.HasUnread,
+                ["needsYou"] = ws.HasUnread,
                 ["branch"] = ws.Branch,
                 ["project"] = ws.HasProject ? ws.Project.Label : null,
                 ["lastMessage"] = ws.LastMessage,
                 ["pullRequest"] = ws.PullRequest,
-                ["status"] = new JsonArray(ws.Chips.Select(c => (JsonNode?)JsonValue.Create(c.Text)).ToArray()),
+                ["status"] = new JsonArray(ws.StatusEntries.Select(s => (JsonNode?)new JsonObject { ["key"] = s.Key, ["text"] = s.Text, ["paneId"] = s.PaneId }).ToArray()),
+                ["ports"] = new JsonArray(ws.Ports.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
                 ["progress"] = ws.Progress,
                 ["lastLog"] = ws.LastLog,
                 ["panes"] = panes,
@@ -420,12 +421,12 @@ public sealed partial class WorkspaceController
             waiting.Add(new JsonObject
             {
                 ["workspaceId"] = ws.Id,
-                ["workspace"] = ws.Name,
+                ["workspaceName"] = ws.Name,
                 ["paneId"] = pane.Id,
-                ["pane"] = pane.Label,
+                ["paneName"] = pane.Label,
                 ["message"] = pane.AttentionMessage,
                 ["finished"] = pane.AttentionFinished,
-                ["since"] = pane.UnreadAt.ToString("O"),
+                ["askedAt"] = pane.UnreadAt.ToString("O"),
             });
         }
         var earlier = new JsonArray();
@@ -433,12 +434,13 @@ public sealed partial class WorkspaceController
         {
             earlier.Add(new JsonObject
             {
-                ["workspace"] = h.WorkspaceName,
+                ["workspaceId"] = h.WorkspaceId,
+                ["workspaceName"] = h.WorkspaceName,
                 ["paneId"] = h.PaneId,
-                ["pane"] = h.PaneLabel,
+                ["paneName"] = h.PaneLabel,
                 ["message"] = h.Message,
-                ["asked"] = h.AskedAt.ToString("O"),
-                ["handled"] = h.HandledAt.ToString("O"),
+                ["askedAt"] = h.AskedAt.ToString("O"),
+                ["handledAt"] = h.HandledAt.ToString("O"),
             });
         }
         return new JsonObject { ["waiting"] = waiting, ["earlier"] = earlier };
@@ -507,6 +509,18 @@ public sealed partial class WorkspaceController
             ["saved"] = saved,
             ["note"] = saved ? null : "Applied until aghouse closes, but settings.json couldn't be written. The log has the details.",
         };
+    }
+
+    /// <summary>The request's profile id, after checking it names a profile (an unknown one used to fall back silently).</summary>
+    private string? CheckedProfile(RpcRequest r) => r.Get("profile") is { Length: > 0 } id ? RequireProfile(id).Id : null;
+
+    /// <summary>The request's folder, after checking it exists (a missing one used to fall back to the home folder silently).</summary>
+    private static string? CheckedCwd(RpcRequest r)
+    {
+        if (r.Get("cwd") is not { Length: > 0 } cwd) return null;
+        // wsl-* profiles take a Linux path, which Windows can't check.
+        if (cwd.StartsWith('/') || cwd.StartsWith('~')) return cwd;
+        return System.IO.Directory.Exists(cwd) ? cwd : throw new RpcException($"No such folder: '{cwd}'.");
     }
 
     private ShellProfile RequireProfile(string id) =>
