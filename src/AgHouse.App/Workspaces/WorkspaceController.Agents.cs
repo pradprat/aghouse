@@ -101,12 +101,26 @@ public sealed partial class WorkspaceController
             items.Add(header);
             items.AddRange(rows);
         }
-        if (!items.SequenceEqual(AgentItems))
-        {
-            AgentItems.Clear();
-            foreach (var item in items) AgentItems.Add(item);
-        }
+        SyncInPlace(AgentItems, items);
         HasAgents = current.Count > 0;
+    }
+
+    /// <summary>
+    /// Makes <paramref name="shown"/> match <paramref name="wanted"/> with the fewest moves, inserts and removes,
+    /// so rows that stay keep their element, and a row with keyboard focus keeps it while others change state.
+    /// </summary>
+    internal static void SyncInPlace(ObservableCollection<object> shown, IReadOnlyList<object> wanted)
+    {
+        for (var i = 0; i < wanted.Count; i++)
+        {
+            if (i < shown.Count && ReferenceEquals(shown[i], wanted[i])) continue;
+            var at = -1;
+            for (var j = i + 1; j < shown.Count; j++)
+                if (ReferenceEquals(shown[j], wanted[i])) { at = j; break; }
+            if (at >= 0) shown.Move(at, i);
+            else shown.Insert(i, wanted[i]);
+        }
+        while (shown.Count > wanted.Count) shown.RemoveAt(shown.Count - 1);
     }
 
     /// <summary>A click on an agent row: its workspace and pane come forward, as from the waiting list.</summary>

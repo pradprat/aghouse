@@ -6,15 +6,15 @@
     <DockPanel Margin="8">
         <!-- The search box, with its hint drawn behind it while empty. -->
         <Grid DockPanel.Dock="Top">
-            <TextBox x:Name="Query" FontSize="14" Padding="10,6" TextChanged="Query_TextChanged"
+            <TextBox x:Name="Query" FontSize="{DynamicResource TypeBody}" Padding="10,6" TextChanged="Query_TextChanged"
                      PreviewKeyDown="Query_PreviewKeyDown"
                      AutomationProperties.Name="Search actions, workspaces and panes" />
-            <TextBlock x:Name="Hint" Text="Search actions, workspaces and panes" FontSize="14" Margin="12,0,0,0"
+            <TextBlock x:Name="Hint" Text="Search actions, workspaces and panes" FontSize="{DynamicResource TypeBody}" Margin="12,0,0,0"
                        VerticalAlignment="Center" IsHitTestVisible="False"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
         </Grid>
 
-        <TextBlock x:Name="NoMatches" DockPanel.Dock="Top" Text="No matches" FontSize="12" Margin="12,10,0,4"
+        <TextBlock x:Name="NoMatches" DockPanel.Dock="Top" Text="No matches" FontSize="{DynamicResource TypeMeta}" Margin="12,10,0,4"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" Visibility="Collapsed" />
 
         <ListBox x:Name="Results" Margin="0,6,0,0" MaxHeight="440" BorderThickness="0" Background="Transparent"
@@ -27,7 +27,7 @@
                 <GroupStyle>
                     <GroupStyle.HeaderTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" Margin="10,8,0,2"
+                            <TextBlock Text="{Binding Name}" FontSize="{DynamicResource TypeMeta}" FontWeight="SemiBold" Margin="10,8,0,2"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                         </DataTemplate>
                     </GroupStyle.HeaderTemplate>
@@ -36,13 +36,13 @@
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type local:PaletteItem}">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding Gesture}" FontSize="11" Margin="12,0,0,0"
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding Gesture}" FontSize="{DynamicResource TypeCaption}" Margin="12,0,0,0"
                                    VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                         <!-- "Needs you · claude agent › GitHub (2)   Allow Bash: npm test" -->
-                        <TextBlock FontSize="14" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                        <TextBlock FontSize="{DynamicResource TypeBody}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
                             <Run Text="{Binding Prefix, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" /><Run
                                  Text="{Binding Title, Mode=OneWay}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" /><Run
-                                 Text="{Binding DetailText, Mode=OneWay}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                 Text="{Binding DetailText, Mode=OneWay}" FontSize="{DynamicResource TypeMeta}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                         </TextBlock>
                     </DockPanel>
                 </DataTemplate>

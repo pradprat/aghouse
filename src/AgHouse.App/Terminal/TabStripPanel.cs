@@ -28,6 +28,8 @@ public sealed class TabStripPanel : Panel
 
     private readonly List<double> _widths = [];
 
+    protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() => new TabStripPeer(this);
+
     protected override Size MeasureOverride(Size available)
     {
         _widths.Clear();

@@ -33,6 +33,7 @@ public partial class App : Application
             "dark" => ThemeMode.Dark,
             _ => ThemeMode.System,
         };
+        Theming.Typography.Start(this);
 
         var profiles = new ShellProfiles(settings);
         var toasts = new ToastService();

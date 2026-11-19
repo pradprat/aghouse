@@ -27,36 +27,9 @@
             </Setter>
         </Style>
 
-        <!-- The sidebar's ghost button: transparent at rest, the subtle fill on hover. Icons rest in Secondary Text. -->
-        <Style x:Key="Ghost" TargetType="Button">
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-            <Setter Property="Padding" Value="6" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="FocusVisualStyle" Value="{StaticResource RowFocusVisual}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bg" CornerRadius="4" Background="Transparent" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <!-- The section labels: "Workspaces", "Agents". -->
         <Style x:Key="SectionLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{DynamicResource TypeMeta}" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
@@ -360,7 +333,7 @@
                                                                 <Border x:Name="Bg" CornerRadius="4" Background="Transparent" Padding="6,4,8,4">
                                                                     <ContentPresenter />
                                                                 </Border>
-                                                                <Border x:Name="Pill" app:Motion.Entrance="Pill" Width="3" Height="14" CornerRadius="1.5"
+                                                                <Border x:Name="Pill" app:Motion.Entrance="Pill" Width="3" Height="16" CornerRadius="1.5"
                                                                         HorizontalAlignment="Left" VerticalAlignment="Center"
                                                                         Background="{DynamicResource AccentFillColorDefaultBrush}" Visibility="Collapsed" />
                                                             </Grid>
@@ -389,9 +362,9 @@
                                                             <Ellipse Fill="{DynamicResource AccentFillColorDefaultBrush}" app:Motion.Entrance="Dot" />
                                                             <Ellipse Margin="-3" Stroke="{DynamicResource AccentFillColorDefaultBrush}" StrokeThickness="1" Opacity="0.45" app:Motion.Entrance="Halo" />
                                                         </Grid>
-                                                        <TextBlock x:Name="Note" DockPanel.Dock="Right" Text="{Binding Name.Note}" FontSize="11" Margin="8,0,0,0"
+                                                        <TextBlock x:Name="Note" DockPanel.Dock="Right" Text="{Binding Name.Note}" FontSize="{DynamicResource TypeCaption}" Margin="8,0,0,0"
                                                                    VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                                        <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="12">
+                                                        <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource TypeMeta}">
                                                             <Run Text="{Binding Name.Label, Mode=OneWay}" FontWeight="SemiBold"
                                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" /><Run
                                                                  Text="  " /><Run Text="{Binding Name.Count, Mode=OneWay}"
@@ -456,7 +429,7 @@
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListBoxItem">
                                     <Grid>
-                                        <Border x:Name="Bg" CornerRadius="6" Background="Transparent"
+                                        <Border x:Name="Bg" CornerRadius="4" Background="Transparent"
                                                 Padding="{TemplateBinding Padding}">
                                             <ContentPresenter />
                                         </Border>
@@ -564,7 +537,7 @@
                             </Grid>
 
                             <Grid DockPanel.Dock="Left" Style="{StaticResource OpenOnly}">
-                                <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis"
+                                <TextBlock Text="{Binding Name}" FontSize="{DynamicResource TypeRow}" TextTrimming="CharacterEllipsis"
                                            Visibility="{Binding IsRenaming, Converter={StaticResource InverseBoolToVis}}" />
                                 <TextBox Text="{Binding Name, Mode=OneWay}" Padding="4,1" MinHeight="0" MinWidth="120"
                                          AutomationProperties.Name="Workspace name"
@@ -574,7 +547,7 @@
                             </Grid>
 
                             <!-- The branch, after the name, unless it's main or master (then it's in the tooltip only). -->
-                            <TextBlock Text="{Binding Branch}" FontSize="12" Margin="10,0,0,0" MaxWidth="110" HorizontalAlignment="Right"
+                            <TextBlock Text="{Binding Branch}" FontSize="{DynamicResource TypeMeta}" Margin="10,0,0,0" MaxWidth="110" HorizontalAlignment="Right"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}">
                                 <TextBlock.Style>
@@ -591,8 +564,8 @@
 
                             <!-- "Needs you · message", under the name. Present only while a pane is still waiting (derived in
                                  Workspace.RefreshSummary). It may wrap onto a second line and trims after that. -->
-                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" FontSize="12" TextTrimming="CharacterEllipsis" Margin="10,3,0,0"
-                                       TextWrapping="Wrap" LineStackingStrategy="BlockLineHeight" LineHeight="16" MaxHeight="32"
+                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" FontSize="{DynamicResource TypeMeta}" TextTrimming="CharacterEllipsis" Margin="10,3,0,0"
+                                       TextWrapping="Wrap" LineStackingStrategy="BlockLineHeight" LineHeight="{DynamicResource TypeMetaLine}" MaxHeight="{DynamicResource TypeMetaTwoLines}"
                                        ToolTip="{Binding WaitingMessages}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource OpenOnly}">
@@ -640,7 +613,7 @@
                     <TextBlock Text="Agents" Style="{StaticResource SectionLabel}" />
                 </DockPanel>
                 <TextBlock Text="No agents running. Start Claude Code, Codex or OpenCode in a pane and it shows up here."
-                           FontSize="12" TextWrapping="Wrap" Margin="6,4,6,4"
+                           FontSize="{DynamicResource TypeMeta}" TextWrapping="Wrap" Margin="6,4,6,4"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            Visibility="{Binding HasAgents, Converter={StaticResource InverseBoolToVis}}" />
                 <ScrollViewer x:Name="AgentsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
@@ -649,7 +622,7 @@
                         <ItemsControl.Resources>
                             <!-- "Idle  3": the state in words, then how many. -->
                             <DataTemplate DataType="{x:Type ws:AgentGroupHeader}">
-                                <TextBlock Margin="6,8,0,3" FontSize="12" AutomationProperties.Name="{Binding Summary}">
+                                <TextBlock Margin="6,8,0,3" FontSize="{DynamicResource TypeMeta}" AutomationProperties.Name="{Binding Summary}">
                                     <Run Text="{Binding Label, Mode=OneWay}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" /><Run
                                          Text="  " /><Run Text="{Binding Count, Mode=OneWay}" FontWeight="SemiBold" />
                                 </TextBlock>
@@ -670,12 +643,12 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <ContentControl Style="{StaticResource AgentMark}" Margin="0,1,8,0" VerticalAlignment="Top" />
-                                        <TextBlock Grid.Column="1" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Top"
-                                                   TextWrapping="Wrap" LineStackingStrategy="BlockLineHeight" LineHeight="16" MaxHeight="32">
+                                        <TextBlock Grid.Column="1" FontSize="{DynamicResource TypeMeta}" TextTrimming="CharacterEllipsis" VerticalAlignment="Top"
+                                                   TextWrapping="Wrap" LineStackingStrategy="BlockLineHeight" LineHeight="{DynamicResource TypeMetaLine}" MaxHeight="{DynamicResource TypeMetaTwoLines}">
                                             <Run Text="{Binding Headline, Mode=OneWay}" /><Run
                                                  Text="{Binding Context, Mode=OneWay}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                         </TextBlock>
-                                        <TextBlock Grid.Column="2" Text="{Binding Age}" FontSize="11" Margin="8,1,0,0" VerticalAlignment="Top"
+                                        <TextBlock Grid.Column="2" Text="{Binding Age}" FontSize="{DynamicResource TypeCaption}" Margin="8,1,0,0" VerticalAlignment="Top"
                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                         <!-- Needs you: the accent dot (the group heading says it in words), its halo at rest: the
                                              workspace row above pulses for the same request, once is enough. Working: a filled
@@ -731,7 +704,7 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
-                    <TextBlock Text="{Binding FooterText}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding FooterText}" FontSize="{DynamicResource TypeCaption}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <!-- Secondary, not Tertiary: Tertiary falls under 4.5:1 on light Mica. Waiting steps up to Primary. -->
@@ -760,7 +733,7 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="14" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Settings" FontSize="13" Margin="10,0,0,0" VerticalAlignment="Center" Style="{StaticResource OpenOnly}" />
+                        <TextBlock Text="Settings" FontSize="{DynamicResource TypeRow}" Margin="10,0,0,0" VerticalAlignment="Center" Style="{StaticResource OpenOnly}" />
                     </StackPanel>
                 </Button>
             </StackPanel>

@@ -32,39 +32,27 @@ internal sealed class FindBar : DockPanel
         _slot = slot;
         Margin = new Thickness(2, 0, 0, 0);
 
-        var close = new Button
-        {
-            Content = new TextBlock { Text = "", FontFamily = (FontFamily)Application.Current.Resources["IconFont"], FontSize = 10 },
-            Padding = new Thickness(7, 3, 7, 3),
-            MinWidth = 0,
-            MinHeight = 0,
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            Focusable = false,
-            VerticalAlignment = VerticalAlignment.Center,
-            ToolTip = "Close find (Esc)",
-        };
-        AutomationProperties.SetName(close, "Close find");
+        var close = PaneSlot.GhostButton("", "Close find (Esc)", "Close find");
         close.Click += (_, _) => Close();
         SetDock(close, Dock.Right);
         Children.Add(close);
 
-        _count = new TextBlock { FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0) };
+        _count = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0) };
+        _count.SetResourceReference(TextBlock.FontSizeProperty, "TypeCaption");
         _count.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
         SetDock(_count, Dock.Right);
         Children.Add(_count);
 
         _box = new TextBox
         {
-            FontSize = 12,
             Padding = new Thickness(6, 1, 6, 1),
-            MinHeight = 0,
-            Height = 22,
+            MinHeight = 22,
             MaxWidth = 320,
             HorizontalAlignment = HorizontalAlignment.Left,
             MinWidth = 180,
             VerticalContentAlignment = VerticalAlignment.Center,
         };
+        _box.SetResourceReference(Control.FontSizeProperty, "TypeMeta");
         AutomationProperties.SetName(_box, "Find in this pane's output");
         _box.TextChanged += (_, _) => { _debounce!.Stop(); _debounce.Start(); };
         _box.PreviewKeyDown += OnKey;
@@ -161,6 +149,8 @@ internal sealed class FindBar : DockPanel
             _popup.IsOpen = true;
         }
         else _popup.IsOpen = false;
+        // Focus stays in the box: say the count, and the first line when there is one.
+        ScreenReader.Say(this, matches.Count > 0 ? $"{_count.Text}. {matches[0].Line}" : _count.Text, "aghouse.find");
     }
 
     private void OnKey(object sender, KeyEventArgs e)
@@ -179,6 +169,7 @@ internal sealed class FindBar : DockPanel
                 var i = Math.Clamp(_list.SelectedIndex + (e.Key == Key.Down ? 1 : -1), 0, _list.Items.Count - 1);
                 _list.SelectedIndex = i;
                 _list.ScrollIntoView(_list.SelectedItem);
+                ScreenReader.Say(this, $"{((FindMatch)_list.SelectedItem).Line}, {i + 1} of {_list.Items.Count}", "aghouse.find");
                 e.Handled = true;
                 break;
         }
@@ -189,6 +180,7 @@ internal sealed class FindBar : DockPanel
         if (_list.SelectedItem is not FindMatch match) return;
         try { Clipboard.SetText(match.Line); _count.Text = "Copied"; }
         catch { _count.Text = "Couldn't copy"; }
+        ScreenReader.Say(this, _count.Text, "aghouse.find");
         Keyboard.Focus(_box);
     }
 
@@ -198,13 +190,13 @@ internal sealed class FindBar : DockPanel
         var line = new FrameworkElementFactory(typeof(TextBlock));
         line.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(nameof(FindMatch.Line)));
         line.SetValue(TextBlock.FontFamilyProperty, new FontFamily("Cascadia Mono, Consolas"));
-        line.SetValue(TextBlock.FontSizeProperty, 12.0);
+        line.SetResourceReference(TextBlock.FontSizeProperty, "TypeMeta");
         line.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
         line.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
 
         var count = new FrameworkElementFactory(typeof(TextBlock));
         count.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(nameof(FindMatch.Count)) { StringFormat = "×{0}" });
-        count.SetValue(TextBlock.FontSizeProperty, 11.0);
+        count.SetResourceReference(TextBlock.FontSizeProperty, "TypeCaption");
         count.SetValue(TextBlock.MarginProperty, new Thickness(8, 0, 0, 0));
         count.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
         count.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");

@@ -44,35 +44,24 @@ public sealed class PaneSlot
     public PaneSlot(string id, Color background)
     {
         Id = id;
-        Background = background;
 
-        _headerText = new TextBlock
-        {
-            FontSize = 12,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            Margin = new Thickness(0, 0, 8, 0),
-        };
+        _headerText = Text("TypeMeta");
+        _headerText.Margin = new Thickness(0, 0, 8, 0);
 
         // "Needs you · <message>": attention said in words, so the accent ring can't be read as focus.
         var needsYou = new Run("Needs you") { FontWeight = FontWeights.SemiBold };
         needsYou.SetResourceReference(TextElement.ForegroundProperty, "TextFillColorPrimaryBrush");
         _attentionMessage = new Run();
         _attentionMessage.SetResourceReference(TextElement.ForegroundProperty, "TextFillColorSecondaryBrush");
-        _attentionText = new TextBlock
-        {
-            FontSize = 12,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            Visibility = Visibility.Collapsed,
-        };
+        _attentionText = Text("TypeMeta");
+        _attentionText.Visibility = Visibility.Collapsed;
         _attentionText.Inlines.Add(needsYou);
         _attentionText.Inlines.Add(_attentionMessage);
 
         // Faint accent wash behind the header of a pane that needs you (a separate layer so the text keeps full opacity).
         _headerTint = Tint();
 
-        _closeButton = GhostButton("", 10, "Close pane (Ctrl+Shift+W)", "Close pane");
+        _closeButton = GhostButton("", "Close pane (Ctrl+Shift+W)", "Close pane");
         _closeButton.Click += (_, _) => { if (ActiveTab is { } t) CloseRequested?.Invoke(t); };
 
         _singleRow = new AttentionFirstRow { Margin = new Thickness(2, 0, 0, 0), Children = { _headerText, _attentionText } };
@@ -82,34 +71,25 @@ public sealed class PaneSlot
         _singleRow.Background = Brushes.Transparent; // the whole row answers a right-click, not just the text
         _singleRow.ContextMenu = new ContextMenu { Items = { duplicate } };
 
-        _newTabButton = GhostButton("", 10, "New tab (Ctrl+Shift+T)", "New tab");
+        _newTabButton = GhostButton("", "New tab (Ctrl+Shift+T)", "New tab");
         _newTabButton.Margin = new Thickness(2, 0, 0, 0);
         _newTabButton.Click += (_, _) => NewTabRequested?.Invoke(this);
         _tabStrip = new TabStripPanel { Visibility = Visibility.Collapsed, Children = { _newTabButton } };
 
         // "110%" while this pane's font is zoomed (Ctrl+= / Ctrl+-). Neutral: it's a fact, not a signal.
-        _fontZoomText = new TextBlock
-        {
-            FontSize = 11,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(8, 0, 4, 0),
-            Visibility = Visibility.Collapsed,
-            ToolTip = "Text size for this pane. Ctrl+0 resets it.",
-        };
+        _fontZoomText = Text("TypeCaption");
+        _fontZoomText.Margin = new Thickness(8, 0, 4, 0);
+        _fontZoomText.Visibility = Visibility.Collapsed;
+        _fontZoomText.ToolTip = "Text size for this pane. Ctrl+0 resets it.";
         _fontZoomText.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
 
         // Pane zoom (Ctrl+Shift+Enter): says how many panes are hidden, and says so in words when one
         // of them needs you, so zooming in can never hide a request.
-        _zoomNote = new TextBlock
-        {
-            FontSize = 12,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            Margin = new Thickness(8, 0, 4, 0),
-            Visibility = Visibility.Collapsed,
-            Cursor = Cursors.Hand,
-            ToolTip = "Show all panes (Ctrl+Shift+Enter)",
-        };
+        _zoomNote = Text("TypeMeta");
+        _zoomNote.Margin = new Thickness(8, 0, 4, 0);
+        _zoomNote.Visibility = Visibility.Collapsed;
+        _zoomNote.Cursor = Cursors.Hand;
+        _zoomNote.ToolTip = "Show all panes (Ctrl+Shift+Enter)";
         _zoomNote.MouseLeftButtonUp += (_, e) => { UnzoomRequested?.Invoke(this); e.Handled = true; };
         _zoomNote.MouseLeftButtonDown += (_, e) => e.Handled = true; // not the header's "focus the pane"
 
@@ -125,7 +105,8 @@ public sealed class PaneSlot
         row.Children.Add(_grip);
         row.Children.Add(right);
 
-        _header = new Grid { Height = 26, Background = Brushes.Transparent };
+        // At least 26px: it grows with Windows' text size rather than clipping the name.
+        _header = new Grid { MinHeight = 26, Background = Brushes.Transparent };
         _header.Children.Add(_headerTint);
         _header.Children.Add(row);
         _header.MouseLeftButtonDown += (_, e) =>
@@ -158,21 +139,38 @@ public sealed class PaneSlot
         {
             Child = content,
             BorderThickness = new Thickness(1),
-            Background = new SolidColorBrush(background),
             CornerRadius = new CornerRadius(4),
             SnapsToDevicePixels = true,
         };
+        Background = background;
         Refresh();
     }
 
     public string Id { get; }
     public Border Frame { get; }
 
-    /// <summary>The terminal palette's background, which the frame matches.</summary>
+    /// <summary>
+    /// The terminal palette's background, which the frame matches. Under a Windows contrast theme the
+    /// header's text comes from the contrast theme, not from the terminal palette, so the frame takes the
+    /// contrast theme's window colour instead and the pane's name and "Needs you" stay readable.
+    /// </summary>
     public Color Background
     {
         get;
-        set { field = value; if (Frame is not null) Frame.Background = new SolidColorBrush(value); }
+        set
+        {
+            field = value;
+            if (Frame is null) return;
+            if (SystemParameters.HighContrast) Frame.SetResourceReference(Border.BackgroundProperty, SystemColors.WindowBrushKey);
+            else Frame.Background = Frozen(value);
+        }
+    }
+
+    private static SolidColorBrush Frozen(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
     }
 
     /// <summary>The header row, for anchoring the find results under it and for dragging the pane.</summary>
@@ -470,26 +468,37 @@ public sealed class PaneSlot
         // Subtle fill on hover, like the ghost buttons beside it.
         grip.MouseEnter += (_, _) => grip.SetResourceReference(Border.BackgroundProperty, "SubtleFillColorSecondaryBrush");
         grip.MouseLeave += (_, _) => grip.Background = Brushes.Transparent;
-        AutomationProperties.SetName(grip, "Drag to move this pane");
+        // A mouse affordance only, so it stays out of the automation tree (a Border has no peer anyway).
         return grip;
     }
 
-    private static Button GhostButton(string glyph, double size, string tip, string name)
+    /// <summary>
+    /// A header button in the sidebar's ghost style, at least 24×24 so it's an easy target (WCAG 2.5.8)
+    /// while the glyph stays small.
+    /// </summary>
+    internal static Button GhostButton(string glyph, string tip, string name)
     {
         var button = new Button
         {
-            Content = new TextBlock { Text = glyph, FontFamily = (FontFamily)Application.Current.Resources["IconFont"], FontSize = size },
-            Padding = new Thickness(7, 3, 7, 3),
-            MinWidth = 0,
-            MinHeight = 0,
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
+            Style = (Style)Application.Current.Resources["Ghost"],
+            Content = new TextBlock { Text = glyph, FontFamily = (FontFamily)Application.Current.Resources["IconFont"], FontSize = 10 },
+            Padding = new Thickness(7, 0, 7, 0),
+            MinWidth = 24,
+            MinHeight = 24,
             Focusable = false, // never steal focus from the terminal
             VerticalAlignment = VerticalAlignment.Center,
             ToolTip = tip,
         };
         AutomationProperties.SetName(button, name);
         return button;
+    }
+
+    /// <summary>Text in the type ramp's <paramref name="size"/> (TypeMeta, TypeCaption), which follows Windows' text size.</summary>
+    internal static TextBlock Text(string size)
+    {
+        var text = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        text.SetResourceReference(TextBlock.FontSizeProperty, size);
+        return text;
     }
 
     /// <summary>
@@ -520,13 +529,14 @@ public sealed class PaneSlot
             _name = new Run();
             _text = new TextBlock
             {
-                FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 Inlines = { _needsYou, _name },
             };
+            _text.SetResourceReference(TextBlock.FontSizeProperty, "TypeMeta");
 
-            _renameBox = new TextBox { FontSize = 12, Padding = new Thickness(2, 0, 2, 0), MinHeight = 0, Visibility = Visibility.Collapsed };
+            _renameBox = new TextBox { Padding = new Thickness(2, 0, 2, 0), MinHeight = 0, Visibility = Visibility.Collapsed };
+            _renameBox.SetResourceReference(TextBlock.FontSizeProperty, "TypeMeta");
             AutomationProperties.SetName(_renameBox, "Tab name");
             _renameBox.KeyDown += (_, e) =>
             {
@@ -535,8 +545,10 @@ public sealed class PaneSlot
             };
             _renameBox.LostKeyboardFocus += (_, _) => { if (_renameBox.IsVisible) CommitRename(); };
 
-            _close = GhostButton("", 8,"Close tab (Ctrl+Shift+W)", "Close tab");
-            _close.Padding = new Thickness(5, 3, 5, 3);
+            _close = GhostButton("", "Close tab (Ctrl+Shift+W)", "Close tab");
+            // As tall as the tab and 24 wide: a target, not just a glyph.
+            _close.MinHeight = 0;
+            _close.VerticalAlignment = VerticalAlignment.Stretch;
             _close.Click += (_, _) => _slot.CloseRequested?.Invoke(Pane);
 
             var row = _row = new DockPanel { Margin = new Thickness(8, 0, 1, 0) };
@@ -546,13 +558,15 @@ public sealed class PaneSlot
 
             _tint = Tint();
             _bg = new Border { CornerRadius = new CornerRadius(3), Background = Brushes.Transparent };
-            Root = new Grid
+            // A TabItem to screen readers: its name, whether it's the one showing, and Select to show it.
+            Root = new TabChip
             {
+                IsActive = () => _active,
+                Activate = () => _slot.TabActivated?.Invoke(Pane),
                 Margin = new Thickness(0, 2, 2, 2),
                 Background = Brushes.Transparent,
                 Children = { _bg, _tint, row },
             };
-            AutomationProperties.SetItemType(Root, "Tab");
 
             Root.MouseEnter += (_, _) => Update(_active);
             Root.MouseLeave += (_, _) => Update(_active);
@@ -579,7 +593,7 @@ public sealed class PaneSlot
         }
 
         public PaneSession Pane { get; }
-        public Grid Root { get; }
+        public TabChip Root { get; }
 
         private (string Label, bool Waiting, bool Active)? _measured;
         private string? _bgKey;
@@ -588,6 +602,7 @@ public sealed class PaneSlot
         /// <summary>Shows the tab's current state. True when something that changes its width changed.</summary>
         public bool Update(bool active)
         {
+            if (active != _active) Root.RaiseSelectionChanged(active);
             _active = active;
             var waiting = Pane.HasUnread;
             _name.Text = Pane.Label;

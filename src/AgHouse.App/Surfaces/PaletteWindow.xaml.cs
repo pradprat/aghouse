@@ -76,6 +76,8 @@ public partial class PaletteWindow : FlyoutWindow
         {
             Results.SelectedIndex = 0;
             Results.ScrollIntoView(Results.SelectedItem);
+        // Focus stays in the box, so a screen reader hears the top match (or that there is none) from here.
+        if (Query.Text.Length > 0) ScreenReader.Say(this, _view.IsEmpty ? "No matches" : SelectedSpoken(), "aghouse.palette");
         }
     }
 
@@ -86,11 +88,13 @@ public partial class PaletteWindow : FlyoutWindow
         {
             case Key.Down or Key.Up when count > 0:
                 Results.SelectedIndex = ((Results.SelectedIndex + (e.Key == Key.Down ? 1 : -1)) % count + count) % count;
+                ScreenReader.Say(this, SelectedSpoken(), "aghouse.palette");
                 Results.ScrollIntoView(Results.SelectedItem);
                 e.Handled = true;
                 break;
             case Key.PageDown or Key.PageUp when count > 0:
                 Results.SelectedIndex = Math.Clamp(Results.SelectedIndex + (e.Key == Key.PageDown ? 8 : -8), 0, count - 1);
+                ScreenReader.Say(this, SelectedSpoken(), "aghouse.palette");
                 Results.ScrollIntoView(Results.SelectedItem);
                 e.Handled = true;
                 break;
@@ -109,6 +113,10 @@ public partial class PaletteWindow : FlyoutWindow
             RunSelected();
         }
     }
+    /// <summary>The selected row as a screen reader should hear it: "Split right, Ctrl+D, 3 of 40".</summary>
+    private string SelectedSpoken() =>
+        Results.SelectedItem is { } item ? $"{item}, {Results.SelectedIndex + 1} of {Results.Items.Count}" : "";
+
 
     private void RunSelected()
     {

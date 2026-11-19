@@ -46,16 +46,16 @@
         <!-- WinUI's subtitle step (20/600), as in the confirmation dialog's heading: a page title has to
              outrank the 14px row labels under it, and at 14/600 it barely did. -->
         <Style x:Key="PageTitle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontSize" Value="{DynamicResource TypeTitle}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Margin" Value="0,0,0,8" />
         </Style>
         <Style x:Key="Label" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontSize" Value="{DynamicResource TypeBody}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <Style x:Key="Help" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{DynamicResource TypeMeta}" />
             <Setter Property="Margin" Value="0,2,0,0" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -154,7 +154,7 @@
                            VerticalAlignment="Top" Foreground="{DynamicResource SystemFillColorCautionBrush}" />
                 <Button DockPanel.Dock="Right" Content="Edit settings.json" Click="EditJson_Click" Margin="12,0,0,0" VerticalAlignment="Center" />
                 <StackPanel>
-                    <TextBlock x:Name="ProblemTitle" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock x:Name="ProblemTitle" FontSize="{DynamicResource TypeBody}" FontWeight="SemiBold" TextWrapping="Wrap" />
                     <TextBlock x:Name="ProblemDetail" Style="{StaticResource Help}" />
                 </StackPanel>
             </DockPanel>
@@ -172,31 +172,31 @@
                 <ListBoxItem Tag="General" AutomationProperties.Name="General">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="14" Margin="0,1,12,0" />
-                        <TextBlock Text="General" FontSize="14" />
+                        <TextBlock Text="General" FontSize="{DynamicResource TypeBody}" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="Appearance" AutomationProperties.Name="Appearance">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE790;" FontFamily="{StaticResource IconFont}" FontSize="14" Margin="0,1,12,0" />
-                        <TextBlock Text="Appearance" FontSize="14" />
+                        <TextBlock Text="Appearance" FontSize="{DynamicResource TypeBody}" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="Notifications" AutomationProperties.Name="Notifications">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xEA8F;" FontFamily="{StaticResource IconFont}" FontSize="14" Margin="0,1,12,0" />
-                        <TextBlock Text="Notifications" FontSize="14" />
+                        <TextBlock Text="Notifications" FontSize="{DynamicResource TypeBody}" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="Integrations" AutomationProperties.Name="Integrations">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE71B;" FontFamily="{StaticResource IconFont}" FontSize="14" Margin="0,1,12,0" />
-                        <TextBlock Text="Integrations" FontSize="14" />
+                        <TextBlock Text="Integrations" FontSize="{DynamicResource TypeBody}" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="About" AutomationProperties.Name="About">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE946;" FontFamily="{StaticResource IconFont}" FontSize="14" Margin="0,1,12,0" />
-                        <TextBlock Text="About" FontSize="14" />
+                        <TextBlock Text="About" FontSize="{DynamicResource TypeBody}" />
                     </StackPanel>
                 </ListBoxItem>
             </ListBox>
@@ -437,7 +437,7 @@
                             <Image Source="/Assets/aghouse-128.png" Width="48" Height="48" Margin="0,0,14,0" DockPanel.Dock="Left"
                                    RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="aghouse logo" />
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="aghouse" FontSize="14" FontWeight="SemiBold" />
+                                <TextBlock Text="aghouse" FontSize="{DynamicResource TypeBody}" FontWeight="SemiBold" />
                                 <TextBlock x:Name="VersionLabel" Style="{StaticResource Help}" />
                             </StackPanel>
                         </DockPanel>
