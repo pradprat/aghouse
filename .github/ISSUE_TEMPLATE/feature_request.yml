@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest something aghouse should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The situation or the workflow, more than the feature. "I run 4 Codex agents and ..." helps more than "add X".
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+  - type: input
+    id: agents
+    attributes:
+      label: Which agents or tools you use
+      placeholder: "Claude Code, Codex, OpenCode, Gemini CLI ..."

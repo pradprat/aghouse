@@ -5,7 +5,31 @@
   </picture>
 </p>
 
+<p align="center">
+  <b>Run Claude Code, Codex and OpenCode side by side on Windows, and never miss the one that needs you.</b>
+</p>
+
+<p align="center">
+  <a href="https://github.com/pradprat/aghouse/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/pradprat/aghouse"></a>
+  <a href="https://github.com/pradprat/aghouse/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/pradprat/aghouse/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/pradprat/aghouse"></a>
+</p>
+
+<p align="center">
+  <img src="docs/images/aghouse.png" alt="aghouse with three workspaces: Claude Code asks permission to edit a file, the sidebar lists it and a finished agent under Needs you and OpenCode under Working, and a test shell runs alongside" width="900">
+</p>
+
 A Windows-native terminal workspace app for running coding agents side by side, in the spirit of cmux.
+
+## Install
+
+Download **`aghouse-<version>-setup-x64.exe`** from the [latest release](https://github.com/pradprat/aghouse/releases/latest) and run it. It installs for your user only (no admin prompt), bundles .NET, and updates itself from then on. Windows 10 1809 or later; Windows 11 for Mica.
+
+The builds aren't code-signed yet, so Windows SmartScreen says "Windows protected your PC" the first time. Click **More info → Run anyway**. To check a download first, compare its SHA-256 (`Get-FileHash <file>`) against the release's `SHA256SUMS.txt`.
+
+Prefer no installer? The release's `aghouse-<version>-win-x64.zip` runs from any folder.
+
+**Then:** open Settings (Ctrl+,) › Integrations and click **Connect Claude Code** or **Connect OpenCode**, and start your agents in a few panes (Ctrl+D splits right).
 
 - **Native UI:** WPF on .NET 10 with the built-in Fluent theme. You get Mica on Windows 11, a system title bar, and Windows toast notifications.
 - **Native terminals:** each pane is rendered by Windows Terminal's own DirectX engine over ConPTY, through [EasyWindowsTerminalControl](https://github.com/mitchcapper/EasyWindowsTerminalControl). Panes are not web views.
@@ -43,7 +67,7 @@ This writes three things to `artifacts/`. All of them bundle the .NET runtime, s
 - `aghouse-<version>-win-x64.zip`: a portable build. Unzip it anywhere and run `AgHouseApp.exe`. Keep the folder together, because the GUI needs `aghouse.exe`, `conpty.dll` and `ShellIntegration\` beside it.
 - `aghouse-<version>-setup-x64.exe`: the installer. By default it installs for the current user only, into `%LOCALAPPDATA%\Programs\aghouse`, with no admin prompt. It adds a Start Menu shortcut and can optionally put `aghouse` on `PATH` and add a desktop icon. Uninstalling removes the program and the PATH entry, but keeps `%APPDATA%\aghouse`.
 
-An installed aghouse updates itself from GitHub Releases: it checks every few hours, downloads the new installer in the background, verifies it against the release's `SHA256SUMS.txt`, and installs it when you quit (or right away with **Restart to update** in Settings › About). Set `"updates": "notify"` to only be told, or `"off"` to never check; `aghouse update` checks from the command line. The portable zip can't update itself and just says when a new version is out. A release must attach `aghouse-<version>-setup-x64.exe` and `SHA256SUMS.txt` (publish.ps1 makes both) for installed copies to pick it up.
+An installed aghouse updates itself from GitHub Releases: it checks every few hours, downloads the new installer in the background, verifies it against the release's `SHA256SUMS.txt`, and installs it when you quit (or right away with **Restart to update** in Settings › About). Set `"updates": "notify"` to only be told, or `"off"` to never check; `aghouse check-update` checks from the command line. The portable zip can't update itself and just says when a new version is out. A release must attach `aghouse-<version>-setup-x64.exe` and `SHA256SUMS.txt` (publish.ps1 makes both) for installed copies to pick it up.
 
 Pass `-NoInstaller` or `-NoZip` to skip either one. The version number comes from `Directory.Build.props`. The installer is not code-signed, so on other PCs Windows SmartScreen will show "Windows protected your PC". Click **More info → Run anyway**.
 
@@ -131,10 +155,14 @@ aghouse actions                                 # every palette/shortcut action
 aghouse run split-right [--pane ID]             # do one as if its shortcut was pressed
 aghouse activate                                # bring the window to the front
 aghouse quit [--force]                          # asks about running programs unless --force
+aghouse ping                                    # is aghouse running, and which version
+aghouse check-update                            # is a newer aghouse out (works without the app)
 aghouse help <command> | commands --json        # help for one command | all of them, for agents
 ```
 
 Exit codes: 0 ok, 1 error, 2 aghouse isn't running, 3 timed out (`wait-for`, `send-text --wait-for`).
+
+**What stays stable:** from 1.0 until 2.0, commands, flags, JSON output and exit codes keep working as they do. New commands, flags and JSON fields may appear, so parse JSON by field name. Plain-text output is for people and may change, so scripts should use the JSON. The named pipe between `aghouse.exe` and the app is internal; talk to aghouse through the CLI. Workspace and pane ids (`w1`, `p3`) are opaque and only valid until aghouse restarts.
 
 ### Driving a pane from an agent
 
@@ -147,14 +175,14 @@ aghouse read-pane --pane $p --lines 40                            # the rest of 
 aghouse send-keys ctrl+c --pane $p                                # stop something
 ```
 
-For finer control, `send-text --json` and `read-pane --json` return a cursor (`cursor`, `next`) to pass to `read-pane --since` or `wait-for --since`. Full-screen programs that redraw (vim, Claude Code) read back as fragments. `aghouse commands --json` describes every command, so an agent can find out what it can do in one call.
+For finer control, `send-text --json` and `read-pane --json` return a `cursor` to pass to `read-pane --since` or `wait-for --since`. Full-screen programs that redraw (vim, Claude Code) read back as fragments. `aghouse commands --json` describes every command, so an agent can find out what it can do in one call.
 
 ### Teaching agents about aghouse
 
 - **Claude Code** learns it by itself once it's connected (below): when a session starts in a pane, aghouse's `SessionStart` hook tells Claude which pane and workspace it's in, the commands it will need most, and a few rules (never type into its own pane, leave panes it didn't open alone). Outside aghouse the hook says nothing.
 - **Other agents** (Codex, Gemini CLI, Cursor and others read `AGENTS.md`): `aghouse agent-guide >> AGENTS.md` adds the same guidance as Markdown. Agents only use it when `AGHOUSE_PANE_ID` is set, so it does no harm outside aghouse.
 
-Inside a pane, `--pane` defaults to that pane (`$env:AGHOUSE_PANE_ID`). Every tab is its own terminal with its own pane id, so `--pane` and `AGHOUSE_PANE_ID` work the same for tabs. `aghouse list` shows each terminal with its `slot` (the pane it's a tab of), `tab` position and whether it's `visible`, plus each workspace's `pullRequest`, `status` chips, `progress` and `lastLog`.
+Inside a pane, `--pane` defaults to that pane (`$env:AGHOUSE_PANE_ID`). Every tab is its own terminal with its own pane id, so `--pane` and `AGHOUSE_PANE_ID` work the same for tabs. `aghouse list` shows each terminal with its `slot` (the pane it's a tab of), `tab` position and whether it's `visible`, plus each workspace's `pullRequest`, `status` (each `{key, text, paneId}`; key `agent` is an agent's own state), `ports`, `progress` and `lastLog`. A pane or workspace that needs you has `needsYou: true`.
 
 Listening ports are found by looking at the processes under each pane's shell, every 3 seconds. Processes inside WSL aren't visible to Windows, so their ports don't show. The PR comes from `gh pr view` in the active pane's folder; without `gh`, or with no PR for the branch, the row just doesn't show one.
 
@@ -178,7 +206,7 @@ PowerShell profiles dot-source `ShellIntegration/aghouse.ps1` after your `$PROFI
 
 ## Files
 
-- Settings: `%APPDATA%\aghouse\settings.json`. The Settings window (the gear, or Ctrl+,) and `aghouse settings set` edit it, and every change applies at once. It holds the font, font size, default profile, Mode (`theme`: `system`/`dark`/`light`), `darkTheme` and `lightTheme` (a theme name; `aghouse themes` lists them), `schemes` (your own colour schemes, in Windows Terminal's format with an optional `"accent"`), `restoreSession`, `toasts`, `flashTaskbar`, `ctrlDSplits` and `groupWorkspaces`. The window only writes those keys, so anything else you put in the file stays. Ctrl+D splits right by default, so it no longer reaches the terminal, where it means end of input or exit (bash, WSL, PowerShell, Claude Code). Turn it off in Settings (`"ctrlDSplits": false`) to give it back; Alt+Shift+= still splits right. If the file has a syntax error, aghouse leaves it as it is, runs on default settings, shows the line with the error at the foot of the sidebar, and keeps Settings read-only until the file is fixed and aghouse restarts.
+- Settings: `%APPDATA%\aghouse\settings.json`. The Settings window (the gear, or Ctrl+,) and `aghouse settings set` edit it, and every change applies at once. It holds the font, font size, default profile, Mode (`theme`: `system`/`dark`/`light`), `darkTheme` and `lightTheme` (a theme name; `aghouse themes` lists them), `schemes` (your own colour schemes, in Windows Terminal's format with an optional `"accent"`), `restoreSession`, `toasts`, `flashTaskbar`, `ctrlDSplits`, `groupWorkspaces`, `warnMultilinePaste` and `updates` (`auto`/`notify`/`off`). `allowInputToAgentPanes` (default `false`) lets one pane type into another pane that runs an agent; only the file sets it, never the CLI. The window only writes those keys, so anything else you put in the file stays. Ctrl+D splits right by default, so it no longer reaches the terminal, where it means end of input or exit (bash, WSL, PowerShell, Claude Code). Turn it off in Settings (`"ctrlDSplits": false`) to give it back; Alt+Shift+= still splits right. If the file has a syntax error, aghouse leaves it as it is, runs on default settings, shows the line with the error at the foot of the sidebar, and keeps Settings read-only until the file is fixed and aghouse restarts.
 - Session: `%APPDATA%\aghouse\session.json`. Workspaces, split layout, each pane's cwd, the window's position and size, and the sidebar width are restored on launch. Scrollback is not restored. With no session.json (the very first launch), aghouse opens on a welcome screen instead of a terminal.
 - Diagnostics: `%LOCALAPPDATA%\aghouse\aghouse.log`
 
@@ -193,6 +221,24 @@ src/AgHouse.Cli    aghouse.exe
 tests/             xUnit tests for Core
 assets/            logo sources (SVG); build-icons.ps1 regenerates the PNGs and src/AgHouse.App/Assets/aghouse.ico
 ```
+
+## FAQ
+
+**Is it free?** Yes. aghouse is open source under the MIT license.
+
+**Does it send anything anywhere?** No telemetry. The only network calls are the update check against GitHub Releases (turn it off with `"updates": "off"`) and `gh pr view` for a workspace's pull request, if you have `gh` installed.
+
+**Why does Windows warn when I install it?** The builds aren't code-signed yet, so SmartScreen doesn't know them. Check the file against `SHA256SUMS.txt`, then click **More info → Run anyway**.
+
+**Which agents does it work with?** Any CLI agent runs in a pane. Claude Code and OpenCode report Working and Needs you through their integrations (Settings › Integrations). Codex, Gemini CLI, Copilot CLI, Cursor Agent and others are recognised by their program and shown in the Agents list. Anything can ask for attention with an escape code or `aghouse notify`.
+
+**Does it replace Windows Terminal?** It uses Windows Terminal's renderer for every pane, so text looks and behaves the same. What it adds is workspaces, agent status and attention, and a CLI that agents can drive.
+
+**Does WSL work?** Yes. Pick a WSL distro as a profile. Ports and the running-program warning don't see processes inside WSL.
+
+**Is there a Mac or Linux version?** No. aghouse is Windows-only by design. On a Mac, look at cmux.
+
+**Where are my settings?** `%APPDATA%\aghouse\settings.json`. Uninstalling keeps them.
 
 ## Known limitations
 

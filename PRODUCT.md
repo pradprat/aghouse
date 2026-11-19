@@ -41,7 +41,8 @@ aghouse is the Windows-native take on the cmux idea. The UI uses WPF Fluent, Mic
 - Every pane has a slim header with a name that tells it apart from its siblings. When the workspace is split, the header also has a ✕ close button. A pane with two or more tabs uses that header as its tab strip. New workspaces are named after their folder.
 - **Hard technical constraint:** the terminal control is a native child window (an airspace issue), so WPF can never draw over a pane. Attention indicators and overlays must sit around panes, never on top of them. Transient surfaces that must float (the palette, the waiting list, find results) are separate owned windows or popups, like menus.
 - The terminal control has no search API. Find searches aghouse's own plain-text mirror of the output and lists matching lines; it can't highlight them in the terminal.
-- No update check: aghouse has no published releases yet, so About links to the Releases page and claims nothing about being up to date.
+- Updates: an installed aghouse checks GitHub Releases every few hours, verifies the new installer against the release's `SHA256SUMS.txt` and installs it when you quit (`updates` in settings.json can make it only notify, or never check). The portable zip only says when a new version is out.
+- The builds are not code-signed yet, so Windows SmartScreen warns on first run.
 - The terminal packages come from Windows Terminal CI builds, not an officially supported Microsoft package.
 - Minimum OS is Windows 10 1809. Mica requires Windows 11.
 - Executables: `AgHouseApp.exe` (GUI) and `aghouse.exe` (CLI). The names differ so they don't collide on Windows' case-insensitive file system.
@@ -57,8 +58,8 @@ aghouse is the Windows-native take on the cmux idea. The UI uses WPF Fluent, Mic
 
 - README with features, keyboard map, CLI reference and known limitations.
 - Logo and icon assets (listed above).
-- Distribution: open source on GitHub.
-- None of the following exist, and future work must not invent them: users or adoption numbers, testimonials, benchmarks, press, release builds or download counts, an installer or store listing.
+- Distribution: open source on GitHub. Releases on GitHub Releases ship a per-user installer, a portable zip and `SHA256SUMS.txt`.
+- None of the following exist, and future work must not invent them: users or adoption numbers, testimonials, benchmarks, press, download counts, a store listing.
 
 ## Product Principles
 

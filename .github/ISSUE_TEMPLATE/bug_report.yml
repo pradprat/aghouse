@@ -1,0 +1,57 @@
+name: Bug report
+description: Something in aghouse doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Security problems go to **Security → Report a vulnerability** instead, not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a workspace in ...
+        2. Run claude in a pane
+        3. ...
+  - type: input
+    id: version
+    attributes:
+      label: aghouse version
+      description: Settings › About, or run `aghouse ping` in a pane.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How you run it
+      options: [Installer, Portable zip, winget, Built from source]
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: "Run `winver`. Also mention display scaling if it's a layout problem."
+      placeholder: "Windows 11 24H2, 150% scaling"
+    validations:
+      required: true
+  - type: input
+    id: shell
+    attributes:
+      label: Shell and agent
+      placeholder: "pwsh 7.5, Claude Code 2.x"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: "The end of `%LOCALAPPDATA%\aghouse\aghouse.log`, if it says anything about the problem. Check it for anything private first."
+      render: text
