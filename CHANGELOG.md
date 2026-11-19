@@ -2,7 +2,7 @@
 
 Every release is on [GitHub Releases](https://github.com/pradprat/aghouse/releases), with the installer, the portable zip and `SHA256SUMS.txt`. Installed copies (0.2.0 and later) update themselves when you quit.
 
-## 1.0.0 (unreleased)
+## 1.0.0
 
 The first stable release. From 1.0 on, the `aghouse` CLI (commands, flags, JSON output and exit codes), the `settings.json` keys and the Claude Code / OpenCode integrations stay compatible until 2.0. New commands, flags, keys and JSON fields may still be added.
 
