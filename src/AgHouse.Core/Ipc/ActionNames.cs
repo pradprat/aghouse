@@ -32,6 +32,8 @@ public static class ActionNames
         new("close-workspace", "Close the selected workspace (asks if something is running)", "Ctrl+Alt+W"),
         new("toggle-groups", "Group the sidebar's workspaces by project, or show them as one list again"),
         new("toggle-sidebar", "Fold the sidebar to a rail of workspace tiles, or open it again", "Ctrl+Shift+B"),
+        new("sidebar-wider", "Make the sidebar wider (opens it from the rail)"),
+        new("sidebar-narrower", "Make the sidebar narrower"),
         new("copy", "Copy the focused pane's selection", "Ctrl+Shift+C"),
         new("paste", "Paste the clipboard into the focused pane", "Ctrl+Shift+V"),
         new("find", "Find in the focused pane's output", "Ctrl+Shift+F"),

@@ -29,12 +29,11 @@ public partial class PaletteWindow : FlyoutWindow
         WindowStartupLocation = WindowStartupLocation.Manual;
         Loaded += (_, _) =>
         {
-            var o = owner.WindowState == WindowState.Maximized ? owner.RestoreBounds : new Rect(owner.Left, owner.Top, owner.ActualWidth, owner.ActualHeight);
-            if (owner.WindowState == WindowState.Maximized)
-            {
-                // RestoreBounds is the old size; a maximized window fills its screen's work area.
-                o = SystemParameters.WorkArea;
-            }
+            // Left/Top of a maximized window still hold its restored position, so use the work area of the
+            // monitor it is maximized on (not SystemParameters.WorkArea, which is always the primary's).
+            var o = owner.WindowState == WindowState.Maximized
+                ? Interop.Win32.WorkAreaOf(owner)
+                : new Rect(owner.Left, owner.Top, owner.ActualWidth, owner.ActualHeight);
             Width = Math.Min(600, Math.Max(360, o.Width - 64));
             Left = o.Left + (o.Width - Width) / 2;
             Top = o.Top + 44;
@@ -76,9 +75,9 @@ public partial class PaletteWindow : FlyoutWindow
         {
             Results.SelectedIndex = 0;
             Results.ScrollIntoView(Results.SelectedItem);
+        }
         // Focus stays in the box, so a screen reader hears the top match (or that there is none) from here.
         if (Query.Text.Length > 0) ScreenReader.Say(this, _view.IsEmpty ? "No matches" : SelectedSpoken(), "aghouse.palette");
-        }
     }
 
     private void Query_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -88,14 +87,14 @@ public partial class PaletteWindow : FlyoutWindow
         {
             case Key.Down or Key.Up when count > 0:
                 Results.SelectedIndex = ((Results.SelectedIndex + (e.Key == Key.Down ? 1 : -1)) % count + count) % count;
-                ScreenReader.Say(this, SelectedSpoken(), "aghouse.palette");
                 Results.ScrollIntoView(Results.SelectedItem);
+                ScreenReader.Say(this, SelectedSpoken(), "aghouse.palette");
                 e.Handled = true;
                 break;
             case Key.PageDown or Key.PageUp when count > 0:
                 Results.SelectedIndex = Math.Clamp(Results.SelectedIndex + (e.Key == Key.PageDown ? 8 : -8), 0, count - 1);
-                ScreenReader.Say(this, SelectedSpoken(), "aghouse.palette");
                 Results.ScrollIntoView(Results.SelectedItem);
+                ScreenReader.Say(this, SelectedSpoken(), "aghouse.palette");
                 e.Handled = true;
                 break;
             case Key.Enter:
@@ -113,10 +112,10 @@ public partial class PaletteWindow : FlyoutWindow
             RunSelected();
         }
     }
+
     /// <summary>The selected row as a screen reader should hear it: "Split right, Ctrl+D, 3 of 40".</summary>
     private string SelectedSpoken() =>
         Results.SelectedItem is { } item ? $"{item}, {Results.SelectedIndex + 1} of {Results.Items.Count}" : "";
-
 
     private void RunSelected()
     {

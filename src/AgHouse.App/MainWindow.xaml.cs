@@ -144,6 +144,25 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, FitWorkspaceList);
     }
 
+    /// <summary>One step of the keyboard resize: the palette's "Make the sidebar wider / narrower".</summary>
+    private const double SidebarStep = 32;
+
+    /// <summary>Widens or narrows the open sidebar within its 170–480px range. Widening the rail opens it first.</summary>
+    public void ResizeSidebar(double delta)
+    {
+        if (IsSidebarCollapsed)
+        {
+            if (delta < 0) return;
+            SetSidebarCollapsed(false);
+        }
+        else
+        {
+            var width = SidebarColumn.ActualWidth > 0 ? SidebarColumn.ActualWidth : SidebarColumn.Width.Value;
+            SidebarColumn.Width = new GridLength(Math.Clamp(width + delta, 170, 480));
+        }
+        Controller.PlacementChanged();
+    }
+
     private void FoldSidebar_Click(object sender, RoutedEventArgs e) => ToggleSidebar();
 
     private void Search_Click(object sender, RoutedEventArgs e) => ShowPalette();

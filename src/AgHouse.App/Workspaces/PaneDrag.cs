@@ -150,7 +150,6 @@ public sealed class PaneDrag
         wash.SetResourceReference(Border.BackgroundProperty, "TextFillColorPrimaryBrush");
         _previewText = new TextBlock
         {
-            FontSize = 12,
             FontWeight = FontWeights.SemiBold,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
@@ -158,6 +157,7 @@ public sealed class PaneDrag
             Margin = new Thickness(8),
         };
         _previewText.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorPrimaryBrush");
+        _previewText.SetResourceReference(TextBlock.FontSizeProperty, "TypeMeta");
         var label = new Border { CornerRadius = new CornerRadius(4), Padding = new Thickness(8, 4, 8, 4), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Child = _previewText };
         label.SetResourceReference(Border.BackgroundProperty, "SolidBackgroundFillColorBaseBrush");
         _previewFrame = new Border

@@ -84,7 +84,7 @@ public partial class WaitingListWindow : FlyoutWindow
         if (PresentationSource.FromVisual(anchor) is not { CompositionTarget: { } target }) return;
         var topLeft = target.TransformFromDevice.Transform(anchor.PointToScreen(new Point(0, 0)));
         Left = topLeft.X - 4;
-        Top = Math.Max(SystemParameters.WorkArea.Top, topLeft.Y - ActualHeight - 6);
+        Top = Math.Max(Interop.Win32.WorkAreaOf(anchor).Top, topLeft.Y - ActualHeight - 6);
     }
 
     private void List_KeyDown(object sender, KeyEventArgs e)
@@ -94,6 +94,17 @@ public partial class WaitingListWindow : FlyoutWindow
             CloseThen(() => _goToPane(row.PaneId));
             e.Handled = true;
         }
+    }
+
+    /// <summary>
+    /// One row looks selected at a time: the one Enter acts on. Tabbing into the other list moves the
+    /// selection with the focus instead of leaving the old row filled.
+    /// </summary>
+    private void List_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        var other = sender == WaitingItems ? EarlierItems : WaitingItems;
+        other.SelectedIndex = -1;
+        if (e.NewFocus is ListBoxItem { IsSelected: false } item) item.IsSelected = true;
     }
 
     private void List_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)

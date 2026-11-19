@@ -35,6 +35,7 @@ public partial class SettingsWindow : Window
 
         LoadControls();
         VersionLabel.Text = VersionText();
+        DescribeControls(this);
 
         if (controller.SettingsProblem is { } problem)
         {
@@ -65,6 +66,32 @@ public partial class SettingsWindow : Window
             controller.AppearanceChanged -= ShowPreviews;
         };
         RefreshUpdates();
+    }
+
+    /// <summary>
+    /// Gives each row's control the row's help line as its UIA help text, so a screen reader hears
+    /// "Ctrl+D splits right, check box" and then what it does. Bound, not copied: some help lines
+    /// (Claude Code's state, the update status) change while the window is open. Walks the logical
+    /// tree, because the pages sit in a ScrollViewer whose template isn't built yet.
+    /// </summary>
+    private void DescribeControls(DependencyObject root)
+    {
+        if (root is Border { Child: DockPanel row } border && border.Style == Resources["Row"])
+        {
+            var help = row.Children.OfType<StackPanel>().SelectMany(p => p.Children.OfType<TextBlock>())
+                .FirstOrDefault(t => t.Style == Resources["Help"]);
+            if (help is null) return;
+            foreach (var side in row.Children.OfType<FrameworkElement>().Where(c => DockPanel.GetDock(c) == Dock.Right))
+            {
+                IEnumerable<Control> controls = side is Panel panel ? panel.Children.OfType<Control>() : side is Control one ? [one] : [];
+                foreach (var control in controls)
+                    control.SetBinding(System.Windows.Automation.AutomationProperties.HelpTextProperty,
+                        new System.Windows.Data.Binding(nameof(TextBlock.Text)) { Source = help });
+            }
+            return;
+        }
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+            DescribeControls(child);
     }
 
     private bool _applying;

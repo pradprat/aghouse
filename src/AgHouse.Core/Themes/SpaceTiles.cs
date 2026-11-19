@@ -12,8 +12,14 @@ public static class SpaceTiles
 
     public static int Count => Hues.Length;
 
-    /// <summary>The letter on a tile reads at this contrast or better.</summary>
-    public const double LetterContrast = 3.0;
+    /// <summary>
+    /// The letter on a tile reads at this contrast or better: 4.5:1, the small-text floor, because on the rail
+    /// the letter is the only thing on screen that names the workspace.
+    /// </summary>
+    public const double LetterContrast = 4.5;
+
+    /// <summary>A half of the table is preferred while its colour already carries a letter at this contrast; the ink is then pushed to <see cref="LetterContrast"/>.</summary>
+    private const double PickContrast = 3.0;
 
     /// <summary>Channels this close count as grey here: Solarized's base tones (#586E75) are blue-tinted greys, not hues.</summary>
     private const int GreyTolerance = 32;
@@ -22,7 +28,7 @@ public static class SpaceTiles
     /// The tile colours for <paramref name="scheme"/>. Dark schemes prefer the bright half of the table (the dark
     /// half sinks into a dark sidebar), light schemes the normal half; the other half stands in when the preferred
     /// colour is a grey (Solarized's brights are its base tones) or can't carry a readable letter. The letter is the
-    /// scheme's foreground or background, whichever reads better, pushed to 3:1 when neither gets there.
+    /// scheme's foreground or background, whichever reads better, pushed to 4.5:1 when neither gets there.
     /// </summary>
     public static IReadOnlyList<(uint Fill, uint Ink)> For(ColorScheme scheme)
     {
@@ -30,7 +36,7 @@ public static class SpaceTiles
         return [.. Hues.Select(h =>
         {
             var candidates = halves.Select(o => Tile(scheme, scheme.Table[h + o] & 0xFFFFFF)).ToList();
-            var best = candidates.FirstOrDefault(t => !Rgb.IsNeutral(t.Fill, GreyTolerance) && t.Contrast >= LetterContrast);
+            var best = candidates.FirstOrDefault(t => !Rgb.IsNeutral(t.Fill, GreyTolerance) && t.Contrast >= PickContrast);
             if (best == default) best = candidates.FirstOrDefault(t => !Rgb.IsNeutral(t.Fill, GreyTolerance));
             if (best == default) best = candidates[0];
             var ink = best.Contrast >= LetterContrast ? best.Ink : Rgb.EnsureContrast(best.Ink, best.Fill, LetterContrast);

@@ -4,6 +4,11 @@
                     xmlns:local="clr-namespace:AgHouse.App.Surfaces"
                     Title="aghouse waiting list" Width="380">
     <Window.Resources>
+        <!-- Focus lives on the rows here, not in a search box as in the palette, so keyboard focus shows the
+             neutral two-stroke ring. -->
+        <Style x:Key="WaitingItem" TargetType="ListBoxItem" BasedOn="{StaticResource QuietListItem}">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource RowFocusVisual}" />
+        </Style>
         <!-- Workspace › pane on top, the request under it, its age on the right. -->
         <DataTemplate x:Key="RowTemplate" DataType="{x:Type local:WaitingRow}">
             <DockPanel>
@@ -30,7 +35,7 @@
                    FontSize="{DynamicResource TypeMeta}" Margin="10,4,10,8" TextWrapping="Wrap"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
         <ListBox x:Name="WaitingItems" BorderThickness="0" Background="Transparent" MaxHeight="300"
-                 ItemContainerStyle="{StaticResource QuietListItem}" ItemTemplate="{StaticResource RowTemplate}"
+                 ItemContainerStyle="{StaticResource WaitingItem}" ItemTemplate="{StaticResource RowTemplate}" GotKeyboardFocus="List_GotKeyboardFocus"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  KeyDown="List_KeyDown" PreviewMouseLeftButtonUp="List_PreviewMouseLeftButtonUp"
                  AutomationProperties.Name="Panes that need you" />
@@ -39,7 +44,7 @@
             <TextBlock Text="Earlier" FontSize="{DynamicResource TypeRow}" FontWeight="SemiBold" Margin="10,12,0,4"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             <ListBox x:Name="EarlierItems" BorderThickness="0" Background="Transparent" MaxHeight="260"
-                     ItemContainerStyle="{StaticResource QuietListItem}" ItemTemplate="{StaticResource RowTemplate}"
+                     ItemContainerStyle="{StaticResource WaitingItem}" ItemTemplate="{StaticResource RowTemplate}" GotKeyboardFocus="List_GotKeyboardFocus"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      KeyDown="List_KeyDown" PreviewMouseLeftButtonUp="List_PreviewMouseLeftButtonUp"
                      AutomationProperties.Name="Requests you already handled" />

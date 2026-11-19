@@ -80,6 +80,49 @@ internal static partial class Win32
     private const uint FLASHW_TRAY = 0x2;
     private const uint FLASHW_TIMERNOFG = 0xC;
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int Left, Top, Right, Bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MONITORINFO
+    {
+        public uint cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    /// <summary>
+    /// The work area (the screen minus the taskbar) of the monitor <paramref name="visual"/> is on, in its
+    /// window's device-independent units. SystemParameters.WorkArea is the primary monitor's only, so a
+    /// flyout placed with it lands on the wrong screen when aghouse is on another one.
+    /// </summary>
+    public static System.Windows.Rect WorkAreaOf(System.Windows.Media.Visual visual)
+    {
+        if (System.Windows.PresentationSource.FromVisual(visual) is System.Windows.Interop.HwndSource { CompositionTarget: { } target } source)
+        {
+            var info = new MONITORINFO { cbSize = (uint)Marshal.SizeOf<MONITORINFO>() };
+            var monitor = MonitorFromWindow(source.Handle, MONITOR_DEFAULTTONEAREST);
+            if (monitor != IntPtr.Zero && GetMonitorInfo(monitor, ref info))
+            {
+                var w = info.rcWork;
+                var topLeft = target.TransformFromDevice.Transform(new System.Windows.Point(w.Left, w.Top));
+                var bottomRight = target.TransformFromDevice.Transform(new System.Windows.Point(w.Right, w.Bottom));
+                return new System.Windows.Rect(topLeft, bottomRight);
+            }
+        }
+        return System.Windows.SystemParameters.WorkArea;
+    }
+
     /// <summary>Flash the taskbar button until the window comes to the foreground.</summary>
     public static void FlashTaskbar(IntPtr hwnd)
     {

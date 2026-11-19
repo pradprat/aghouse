@@ -34,6 +34,8 @@ public partial class MainWindow
             case "edit-settings-file": OpenSettingsFile(); break;
             case "open-logs": OpenLogsFolder(); break;
             case "check-for-updates": CheckForUpdates(); break;
+            case "sidebar-wider": ResizeSidebar(SidebarStep); break;
+            case "sidebar-narrower": ResizeSidebar(-SidebarStep); break;
             // Answer the CLI first: the pipe goes away with the window (as for 'aghouse quit').
             case "restart-to-update": _ = Task.Delay(150).ContinueWith(_ => Dispatcher.BeginInvoke(RestartToUpdate)); break;
         }
@@ -224,6 +226,11 @@ public partial class MainWindow
         Shortcut("Rename workspace", "Ctrl+Shift+R", AppAction.RenameWorkspace);
         Action(IsSidebarCollapsed ? "Open the sidebar" : "Fold the sidebar", "Ctrl+Shift+B", ToggleSidebar,
             "sidebar collapse expand hide show rail toggle");
+        // The splitter is mouse-only (a tab stop between the sidebar and the terminals would be in the way),
+        // so the width has keyboard paths here and in `aghouse run sidebar-wider`.
+        Action("Make the sidebar wider", null, () => ResizeSidebar(SidebarStep), "sidebar width resize bigger grow");
+        if (!IsSidebarCollapsed)
+            Action("Make the sidebar narrower", null, () => ResizeSidebar(-SidebarStep), "sidebar width resize smaller shrink");
         var grouped = Controller.GroupWorkspaces;
         Action(grouped ? "Show workspaces as a list" : "Group workspaces by project", null,
             () => Controller.SetGroupWorkspaces(!grouped), "sidebar group cluster project repo folder flat");

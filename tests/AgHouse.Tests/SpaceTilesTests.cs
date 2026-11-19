@@ -20,7 +20,7 @@ public class SpaceTilesTests
         var tiles = SpaceTiles.For(scheme);
         Assert.Equal(SpaceTiles.Count, tiles.Count);
         foreach (var (fill, ink) in tiles)
-            Assert.True(Rgb.Contrast(fill, ink) >= 3.0, $"{name}: {Rgb.ToHex(ink)} on {Rgb.ToHex(fill)} is {Rgb.Contrast(fill, ink):0.00}:1");
+            Assert.True(Rgb.Contrast(fill, ink) >= SpaceTiles.LetterContrast, $"{name}: {Rgb.ToHex(ink)} on {Rgb.ToHex(fill)} is {Rgb.Contrast(fill, ink):0.00}:1");
     }
 
     [Theory]
